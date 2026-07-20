@@ -180,7 +180,6 @@
   .badge.Medium{background:rgba(227,179,65,.15);color:var(--medium);border:1px solid rgba(227,179,65,.35);}
   .badge.Low, .badge.Unknown{background:rgba(139,143,153,.15);color:var(--low);border:1px solid rgba(139,143,153,.35);}
   .badge.src{background:transparent;border:1px solid var(--border);color:var(--muted);}
-  .badge.carried{background:rgba(240,136,62,.12);color:var(--warn);border:1px solid rgba(240,136,62,.35);}
   .chev{color:var(--muted);font-size:12px;transition:transform .15s;}
   .hyp-card.open .chev{transform:rotate(90deg);}
   .hyp-body{display:none;padding:0 16px 16px;font-size:13.5px;color:var(--muted);}
@@ -378,7 +377,7 @@ flowchart TD
   <!-- ================= HYPOTHESES ================= -->
   <section id="hypotheses">
     <h2>2. Hypothesis List</h2>
-    <p class="section-desc">Mỗi hypothesis gắn evidence, nguồn (JSON/HTML), và mức độ tin cậy. Card có badge <span class="badge carried" style="margin:0 2px;">carried-over</span> nghĩa là evidence gốc không được trích lại tường minh trong bộ tài liệu này — cần đọc thận trọng hơn các card khác.</p>
+    <p class="section-desc">Mỗi hypothesis gắn evidence, nguồn (JSON/HTML), và mức độ tin cậy.</p>
 
     <!-- ADDED: định nghĩa các mức confidence để tránh hiểu badge như kết luận đúng/sai tuyệt đối. -->
     <aside class="confidence-guide" aria-labelledby="confidence-guide-title">
@@ -401,7 +400,6 @@ flowchart TD
           <span>Chưa có đủ bằng chứng để kết luận. “Unknown” không có nghĩa là cơ chế đó không tồn tại hoặc hypothesis là sai.</span>
         </div>
       </div>
-      <p class="confidence-note"><span class="badge carried">⚠ carried-over</span> là trạng thái của <b>bằng chứng</b>, không phải một mức confidence: đánh giá được kế thừa từ phân tích HTML trước đó nhưng chưa được tái xác minh đầy đủ ngay trong báo cáo này.</p>
     </aside>
 
     <div class="filters" id="filters">
@@ -411,7 +409,6 @@ flowchart TD
       <button data-f="Low">Low / Unknown</button>
       <button data-f="json">Nguồn: JSON</button>
       <button data-f="html">Nguồn: HTML</button>
-      <button data-f="carried">⚠ Carried-over</button>
     </div>
 
     <div id="hyp-list"></div>
@@ -893,67 +890,67 @@ mermaid.run({querySelector:'.mermaid'}).then(()=>{
 
 // ---- Hypothesis data ----
 const hypotheses = [
-  {t:"Workflow chính là pipeline tuyến tính", conf:"High", src:["json","html"], carried:false,
+  {t:"Workflow chính là pipeline tuyến tính", conf:"High", src:["json","html"],
    ev:"Confirmed bằng 5 explicit Edges (Finding 1); HTML timestamps xác nhận execution theo đúng thứ tự, không overlap.",
    note:"Graph tuyến tính 6 node, không branching."},
-  {t:"Scheduler chỉ dispatch node sau khi predecessor hoàn tất", conf:"Medium", src:["html"], carried:false,
+  {t:"Scheduler chỉ dispatch node sau khi predecessor hoàn tất", conf:"Medium", src:["html"],
    ev:"HTML timestamps (Finding 1) hỗ trợ nhưng chỉ chứng minh 'không overlap', không chứng minh cơ chế dispatch chờ-hoàn-tất-mới-bắt-đầu.",
    note:"JSON chỉ định dependency, không chỉ định completion semantics."},
-  {t:"PAL có reference resolver (2 namespace)", conf:"High", src:["json"], carried:false,
+  {t:"PAL có reference resolver (2 namespace)", conf:"High", src:["json"],
    ev:"18/18 typed references trong JSON đều trỏ đến ID tồn tại (Finding 2); 2 namespace: WORKFLOW_NODE và WORKFLOW_HUMAN_INPUT_FIELD.",
    note:"Không có dangling reference nào được quan sát."},
-  {t:"Context được truyền bằng explicit dataflow (không phải shared transcript)", conf:"High", src:["json","html"], carried:false,
+  {t:"Context được truyền bằng explicit dataflow (không phải shared transcript)", conf:"High", src:["json","html"],
    ev:"Finding 3: mỗi node khai báo cụ thể input cần; resolved runtime prompt cho thấy nội dung khớp với template + reference.",
    note:"Unknown: payload cuối cùng / có truncation hay không."},
-  {t:"Toàn bộ output predecessor được inject nguyên vẹn vào node sau", conf:"Low", src:[], carried:false,
+  {t:"Toàn bộ output predecessor được inject nguyên vẹn vào node sau", conf:"Low", src:[],
    ev:"Không có evidence trực tiếp cho việc output được truyền full/summary/truncated.",
    note:"Chưa xác định được."},
-  {t:"Mỗi node có transcript độc lập (không chia sẻ 1 conversation dài)", conf:"High", src:["html"], carried:false,
+  {t:"Mỗi node có transcript độc lập (không chia sẻ 1 conversation dài)", conf:"High", src:["html"],
    ev:"Finding 8: cấu trúc message role:user / role:assistant / step-start lặp lại riêng cho từng node execution.",
    note:"Evidence trực tiếp trong Findings 1, 8."},
-  {t:"Market Research agent có inner tool loop", conf:"High", src:["html"], carried:false,
+  {t:"Market Research agent có inner tool loop", conf:"High", src:["html"],
    ev:"Findings 8, 10, 11: search_workspace_tools ×3 → use_workspace_tool ×2 (1 validation error, 1 rate-limit error) → final output.",
    note:"Toàn bộ trace nằm trong HTML runtime, đã trích lại."},
-  {t:"Tool interface là discovery-then-invoke", conf:"High", src:["html"], carried:false,
+  {t:"Tool interface là discovery-then-invoke", conf:"High", src:["html"],
    ev:"Finding 12: instruction rõ ràng 'call use_workspace_tool with the exact tool_name, category...' sau khi search_workspace_tools trả kết quả.",
    note:"Evidence trực tiếp, đã trích lại."},
-  {t:"Tool error là non-fatal (node vẫn hoàn tất)", conf:"High", src:["html"], carried:false,
+  {t:"Tool error là non-fatal (node vẫn hoàn tất)", conf:"High", src:["html"],
    ev:"Findings 10, 11: 2 lỗi tool (validation + rate-limit) nhưng node vẫn 'COMPLETED' và tạo final report.",
    note:"Evidence trực tiếp, đã trích lại."},
-  {t:"Orchestrator phân rã task động", conf:"High", src:["json","html"], carried:false,
+  {t:"Orchestrator phân rã task động", conf:"High", src:["json","html"],
    ev:"Finding 7: orchestratorPrompt yêu cầu delegate; HTML xác nhận 3 worker task thực tế được tạo và hoàn tất.",
    note:"JSON xác nhận intent, HTML xác nhận runtime."},
-  {t:"3 worker task chạy song song", conf:"Low", src:[], carried:false,
+  {t:"3 worker task chạy song song", conf:"Low", src:[],
    ev:"Không có timestamp hay concurrency flag cho worker task trong bằng chứng hiện có.",
    note:"Chưa xác định được song song hay tuần tự."},
-  {t:"maxTaskCount=10 giới hạn fan-out của orchestrator", conf:"High", src:["html"], carried:false,
+  {t:"maxTaskCount=10 giới hạn fan-out của orchestrator", conf:"High", src:["html"],
    ev:"Finding 14: trường maxTaskCount:10 xuất hiện trực tiếp trong HTML runtime config.",
    note:"Áp dụng cho cấu hình của run này."},
-  {t:"Không có synthesizer riêng cho orchestrator-worker", conf:"High", src:["html"], carried:false,
+  {t:"Không có synthesizer riêng cho orchestrator-worker", conf:"High", src:["html"],
    ev:"Findings 8, 14: synthesizerPrompt:null xuất hiện trực tiếp.",
    note:"Áp dụng cho run này."},
-  {t:"Memory dài hạn không được dùng trong run này", conf:"High", src:["html"], carried:false,
+  {t:"Memory dài hạn không được dùng trong run này", conf:"High", src:["html"],
    ev:"Finding 13: isMemoryEnabled:false xuất hiện trực tiếp trong agent config.",
    note:"Chỉ áp dụng cho agent config của run được quan sát."},
-  {t:"Browser use / computer use bị tắt", conf:"High", src:["html"], carried:false,
+  {t:"Browser use / computer use bị tắt", conf:"High", src:["html"],
    ev:"Finding 13: isBrowserUseEnabled:false, isComputerUseEnabled:false xuất hiện trực tiếp.",
    note:"Configuration state, không chứng minh enforcement."},
-  {t:"HITL chỉ diễn ra ở đầu và sau run, không có gate giữa các agent", conf:"High", src:["json","html"], carried:false,
+  {t:"HITL chỉ diễn ra ở đầu và sau run, không có gate giữa các agent", conf:"High", src:["json","html"],
    ev:"Finding 5: 1 HUMAN_INPUT node ở đầu graph; không có GateNode; HTML cho thấy waitState:null suốt run.",
    note:"Đúng cho workflow/run này, không phải toàn nền tảng."},
-  {t:"Content Brief có 5 field bắt buộc", conf:"High", src:["json"], carried:false,
+  {t:"Content Brief có 5 field bắt buộc", conf:"High", src:["json"],
    ev:"Finding 4: JSON cho thấy chỉ 4 required + 1 optional — hypothesis ban đầu SAI, đã sửa.",
    note:"Contradicted — corrected."},
-  {t:"Workflow này không dùng Loop/Router/Gate/Evaluator", conf:"High", src:["json"], carried:false,
+  {t:"Workflow này không dùng Loop/Router/Gate/Evaluator", conf:"High", src:["json"],
    ev:"Finding 6: toàn bộ subtype slot tương ứng đều null trong mọi node.",
    note:"Newly confirmed."},
-  {t:"PAL schema phân biệt nhiều specialized node type (Loop, Router, Gate, Evaluator, Chat, Artifact...)", conf:"Medium", src:["json"], carried:false,
+  {t:"PAL schema phân biệt nhiều specialized node type (Loop, Router, Gate, Evaluator, Chat, Artifact...)", conf:"Medium", src:["json"],
    ev:"Finding 6: các field tồn tại trong schema dù = null, chứng tỏ data model nhận diện các type này.",
    note:"Runtime semantics trên toàn nền tảng chưa biết — chỉ biết schema tồn tại."},
-  {t:"Tool schema validation là hard guardrail tại boundary", conf:"High", src:["html"], carried:false,
+  {t:"Tool schema validation là hard guardrail tại boundary", conf:"High", src:["html"],
    ev:"Finding 10: request thiếu query bị từ chối với message cụ thể thay vì gửi tiếp.",
    note:"Không rõ PAL hay tool provider thực thi."},
-  {t:"Rate limit thuộc external provider, không phải PAL tự áp", conf:"Medium", src:["html"], carried:false,
+  {t:"Rate limit thuộc external provider, không phải PAL tự áp", conf:"Medium", src:["html"],
    ev:"Finding 11: message rate-limit có định dạng đặc trưng của news API bên thứ ba ('Developer accounts are limited to 100 requests...').",
    note:"Suy luận hợp lý từ nội dung message, chưa xác nhận 100%."},
 ];
@@ -974,7 +971,6 @@ function render(list){
         <div class="hyp-title">${h.t}</div>
         <div class="badges">
           ${badgeSrc(h.src)}
-          ${h.carried?'<span class="badge carried">⚠ carried-over</span>':''}
           <span class="badge ${confClass(h.conf)}">${h.conf}</span>
           <span class="chev">▶</span>
         </div>
@@ -1002,7 +998,6 @@ document.querySelectorAll('#filters button').forEach(btn=>{
     else if(f==='Low') list = hypotheses.filter(h=>h.conf==='Low'||h.conf==='Unknown');
     else if(f==='json') list = hypotheses.filter(h=>h.src.includes('json'));
     else if(f==='html') list = hypotheses.filter(h=>h.src.includes('html'));
-    else if(f==='carried') list = hypotheses.filter(h=>h.carried);
     render(list);
   });
 });
