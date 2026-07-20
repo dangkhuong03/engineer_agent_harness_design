@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAL Agent Harness — Reverse Engineering Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#f6f8fc;
+    --panel:#ffffff;
+    --panel-2:#f0f4fa;
+    --border:#d8e0ec;
+    --border-strong:#c4cfde;
+    --text:#172033;
+    --muted:#526078;
+    --accent:#2457d6;
+    --accent-soft:#eaf0ff;
+    --json:#167447;      /* green - JSON confirmed */
+    --html-c:#9a6200;    /* amber - HTML inferred */
+    --unk:#626c7e;        /* gray - unknown/inferred structure */
+    --high:#167447;
+    --medium:#946000;
+    --low:#626c7e;
+    --warn:#b54708;
+    --code-bg:#f3f6fa;
+    --code-text:#1d2939;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.08);
+    --shadow-lg:0 18px 48px rgba(25,42,70,.14);
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;scroll-padding-top:68px;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.68;}
+  body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  a{color:var(--accent);text-underline-offset:2px;}
+  button{font:inherit;}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 28px 88px;}
+
+  header.top{
+    padding:54px 28px 38px;
+    border-bottom:1px solid var(--border);
+    background:
+      radial-gradient(circle at 78% 10%,rgba(36,87,214,.09),transparent 34%),
+      linear-gradient(180deg,#ffffff 0%,#f6f8fc 100%);
+  }
+  header.top .inner{max-width:1104px;margin:0 auto;}
+  .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:750;margin-bottom:12px;}
+  h1{font-size:clamp(29px,4vw,42px);line-height:1.18;margin:0 0 14px;letter-spacing:-.025em;}
+  .subtitle{color:var(--muted);font-size:15.5px;max-width:820px;margin:0;}
+
+  nav.subnav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--border);
+    box-shadow:0 1px 0 rgba(16,24,40,.02);
+  }
+  nav.subnav .inner{
+    max-width:1160px;margin:0 auto;padding:0 28px;
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;
+  }
+  nav.subnav a{
+    display:inline-block;padding:15px 13px 13px;font-size:13px;font-weight:650;
+    color:var(--muted);text-decoration:none;white-space:nowrap;
+    border-bottom:2px solid transparent;
+    transition:color .16s ease,background .16s ease,border-color .16s ease;
+  }
+  nav.subnav a:hover{color:var(--text);background:#f8faff;}
+  nav.subnav a.active{color:var(--text);border-bottom-color:var(--accent);}
+
+  section{padding:58px 0 22px;border-bottom:1px solid var(--border);}
+  section:last-of-type{border-bottom:none;}
+  h2{font-size:clamp(21px,2.5vw,26px);line-height:1.3;margin:0 0 9px;letter-spacing:-.015em;}
+  .section-desc{color:var(--muted);font-size:14.5px;margin:0 0 26px;max-width:860px;}
+
+  /* Legend */
+  .legend{
+    display:flex;gap:18px;flex-wrap:wrap;align-items:center;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 18px;margin-bottom:22px;font-size:13px;color:var(--muted);
+    box-shadow:var(--shadow-sm);
+  }
+  .legend b{color:var(--text);}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;}
+  .dot.json{background:var(--json);}
+  .dot.htmlc{background:var(--html-c);}
+  .dot.unk{background:var(--unk);}
+
+  /* Diagram */
+  .diagram-box{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    overflow:hidden;box-shadow:var(--shadow-lg);
+  }
+  .diagram-toolbar{
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+    padding:10px 12px;border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,#fff 0%,#f8faff 100%);
+  }
+  .diagram-toolbar button{
+    display:inline-flex;align-items:center;justify-content:center;gap:5px;
+    min-height:34px;padding:6px 10px;border:1px solid var(--border-strong);
+    border-radius:8px;background:#fff;color:#344054;font-size:12px;font-weight:650;
+    cursor:pointer;box-shadow:0 1px 1px rgba(16,24,40,.04);
+    transition:transform .12s ease,border-color .12s ease,background .12s ease,color .12s ease;
+  }
+  .diagram-toolbar button:hover{background:var(--accent-soft);border-color:#9db4ee;color:#173f9f;}
+  .diagram-toolbar button:active{transform:translateY(1px);}
+  .diagram-toolbar button:focus-visible{outline:3px solid rgba(36,87,214,.22);outline-offset:1px;}
+  .diagram-toolbar button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .diagram-toolbar .toolbar-spacer{flex:1 1 14px;}
+  .diagram-toolbar .zoom-level{min-width:46px;text-align:center;color:var(--muted);font:650 11px/1 var(--mono);}
+  .diagram-viewport{
+    position:relative;height:clamp(460px,68vh,760px);overflow:hidden;
+    background-color:#fbfcfe;
+    background-image:radial-gradient(#d9e2ef .7px,transparent .7px);
+    background-size:18px 18px;
+    touch-action:none;cursor:grab;user-select:none;
+  }
+  .diagram-viewport.is-panning{cursor:grabbing;}
+  .diagram-stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;}
+  .mermaid{min-width:900px;background:#fff;}
+  .mermaid svg{display:block;max-width:none!important;height:auto;background:#fff;}
+  .diagram-hint{
+    position:absolute;right:12px;bottom:10px;z-index:2;padding:5px 8px;
+    border:1px solid var(--border);border-radius:7px;background:rgba(255,255,255,.9);
+    color:var(--muted);font-size:11px;pointer-events:none;box-shadow:var(--shadow-sm);
+  }
+  .diagram-box:fullscreen{width:100vw;height:100vh;border:0;border-radius:0;background:#fff;}
+  .diagram-box:fullscreen .diagram-viewport{height:calc(100vh - 56px);}
+  .diagram-box:fullscreen .diagram-toolbar{min-height:56px;}
+
+  /* Filters */
+  .filters{
+    display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;
+  }
+  .filters button{
+    background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    font-size:12px;font-weight:650;padding:8px 13px;border-radius:20px;cursor:pointer;
+    transition:background .14s ease,color .14s ease,border-color .14s ease;
+  }
+  .filters button:hover{border-color:#9db4ee;color:var(--accent);}
+  .filters button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+  /* Hypothesis cards */
+  .hyp-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin-bottom:11px;overflow:hidden;box-shadow:var(--shadow-sm);
+    transition:border-color .15s ease,box-shadow .15s ease;
+  }
+  .hyp-card:hover{border-color:var(--border-strong);}
+  .hyp-head{
+    display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;
+    justify-content:space-between;
+  }
+  .hyp-title{font-size:14px;font-weight:600;flex:1;}
+  .badges{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.02em;}
+  .badge.High{background:rgba(63,185,80,.15);color:var(--high);border:1px solid rgba(63,185,80,.35);}
+  .badge.Medium{background:rgba(227,179,65,.15);color:var(--medium);border:1px solid rgba(227,179,65,.35);}
+  .badge.Low, .badge.Unknown{background:rgba(139,143,153,.15);color:var(--low);border:1px solid rgba(139,143,153,.35);}
+  .badge.src{background:transparent;border:1px solid var(--border);color:var(--muted);}
+  .badge.carried{background:rgba(240,136,62,.12);color:var(--warn);border:1px solid rgba(240,136,62,.35);}
+  .chev{color:var(--muted);font-size:12px;transition:transform .15s;}
+  .hyp-card.open .chev{transform:rotate(90deg);}
+  .hyp-body{display:none;padding:0 16px 16px;font-size:13.5px;color:var(--muted);}
+  .hyp-card.open .hyp-body{display:block;}
+  .hyp-body .row{margin-bottom:8px;}
+  .hyp-body .row b{color:var(--text);}
+
+  /* Findings */
+  .finding{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:22px 24px;margin-bottom:16px;box-shadow:var(--shadow-sm);
+  }
+  .finding.guardrail{border-left:3px solid var(--warn);}
+  .finding-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+  .finding-num{color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;}
+  .finding h3{font-size:16px;line-height:1.45;margin:2px 0 12px;color:var(--text);}
+  .finding .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:12px 0 4px;}
+  .finding p{margin:4px 0 12px;font-size:14px;color:var(--muted);}
+  table{width:100%;border-collapse:separate;border-spacing:0;margin:18px 0;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:13.5px;}
+  th,td{padding:11px 13px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:left;vertical-align:top;}
+  th{background:var(--panel-2);color:var(--text);font-weight:700;}
+  tr:last-child td{border-bottom:0;}
+  th:last-child,td:last-child{border-right:0;}
+  pre{
+    background:var(--code-bg);border:1px solid var(--border);border-radius:9px;
+    padding:14px 16px;overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.65;
+    color:var(--code-text);margin:7px 0 12px;tab-size:2;
+  }
+  .evidence-shot{
+    margin:7px 0 14px;padding:8px;background:var(--panel-2);
+    border:1px solid var(--border);border-radius:8px;
+  }
+  .evidence-shot img{
+    display:block;width:100%;height:auto;max-height:760px;object-fit:contain;
+    object-position:top left;background:#fff;border-radius:5px;
+  }
+  .evidence-shot figcaption{
+    margin-top:7px;color:var(--muted);font-size:11px;
+  }
+  code{font-family:var(--mono);}
+  :not(pre)>code{padding:.12em .38em;border:1px solid var(--border);border-radius:5px;background:var(--code-bg);color:#243a6b;font-size:.9em;}
+
+  /* Unknowns */
+  .unknown{
+    background:#fffaf3;border:1px dashed #dca66b;border-radius:10px;
+    padding:12px 16px;margin-bottom:8px;font-size:13.5px;
+  }
+  .unknown b{color:var(--text);}
+  .unknown .q{color:var(--warn);margin-right:8px;}
+
+  footer{color:var(--muted);font-size:12px;padding:30px 0;text-align:center;}
+
+  @media (max-width:720px){
+    .wrap{padding:0 16px 64px;}
+    header.top{padding:38px 16px 30px;}
+    nav.subnav .inner{padding:0 10px;}
+    nav.subnav a{padding:13px 10px 11px;}
+    section{padding:42px 0 18px;}
+    .legend{display:grid;gap:10px;padding:13px 14px;}
+    .diagram-toolbar{gap:5px;padding:8px;}
+    .diagram-toolbar button{min-width:36px;padding:6px 8px;}
+    .diagram-toolbar button .label{display:none;}
+    .diagram-toolbar .toolbar-spacer{display:none;}
+    .diagram-viewport{height:58vh;min-height:390px;}
+    .diagram-hint{display:none;}
+    .finding{padding:18px 16px;}
+    .hyp-head{align-items:flex-start;flex-direction:column;}
+    .badges{flex-wrap:wrap;}
+    pre{margin-left:-4px;margin-right:-4px;padding:12px;font-size:11.5px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto;}
+    *,*::before,*::after{transition:none!important;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div class="kicker">Reverse Engineer Agent Harness Design</div>
+    <h1>PAL — Harness Architecture &amp; Evidence Report</h1>
+    <p class="subtitle">Suy luận kiến trúc điều phối của PAL (orchestration loop, tool interface, context/memory, guardrails, human-in-the-loop) dựa trên đối chiếu workflow JSON export và HTML runtime của một lần chạy thực tế. Mỗi claim được gắn evidence cụ thể và mức độ tin cậy.</p>
+  </div>
+</header>
+
+<nav class="subnav">
+  <div class="inner">
+    <a href="#diagram" class="navlink">Architecture Diagram</a>
+    <a href="#hypotheses" class="navlink">Hypothesis List</a>
+    <a href="#findings" class="navlink">Findings chi tiết</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ================= DIAGRAM ================= -->
+  <section id="diagram">
+    <h2>1. Harness Architecture Diagram</h2>
+    <p class="section-desc">Sơ đồ tách rõ 5 lớp: human interaction, control-flow graph (JSON <code>Edges</code>), data-flow / reference resolution, tool loop bên trong agent, và orchestrator-worker delegation. Node/edge không có bằng chứng trực tiếp được đánh dấu riêng.</p>
+
+    <div class="legend">
+      <span><span class="dot json"></span><b>🟢 JSON-confirmed</b> — xác nhận trực tiếp từ workflow JSON export</span>
+      <span><span class="dot htmlc"></span><b>🟡 HTML-inferred</b> — xác nhận/suy luận từ HTML runtime log</span>
+      <span><span class="dot unk"></span><b>⚪ Unknown</b> — cấu trúc suy đoán hợp lý, không có bằng chứng trực tiếp</span>
+    </div>
+
+    <div class="diagram-box">
+      <div class="mermaid">
+flowchart TD
+    subgraph UI["🟢 Human interaction"]
+        U["🟢 User"]
+        H["🟢 Content Brief — HUMAN_INPUT node<br/>4 required + 1 optional field"]
+        POST["🟡 Post-run controls<br/>Share · Export PDF · New Run · Delete"]
+        U -->|"🟢 submits fields"| H
+    end
+
+    subgraph CONTROL["🟢 Control-flow graph — JSON Edges"]
+        S["⚪ Workflow scheduler/runtime<br/>(execution semantics inferred, not directly observed)"]
+        M["🟢 Market & Competitor Research — AGENT"]
+        C["🟢 Content Strategy & Outline — AGENT"]
+        A["🟢 Long-Form SEO Article — AGENT"]
+        Q["🟢 SEO & Quality Review — AGENT"]
+        O["🟢 Distribution Pack — ORCHESTRATOR_WORKER"]
+
+        H -->|"🟢 graph entry edge"| S
+        S -->|"🟢 Edge / 🟡 sequential timestamps"| M
+        M -->|"🟢 Edge / 🟡 sequential timestamps"| C
+        C -->|"🟢 Edge / 🟡 sequential timestamps"| A
+        A -->|"🟢 Edge / 🟡 sequential timestamps"| Q
+        Q -->|"🟢 Edge / 🟡 sequential timestamps"| O
+        S -->|"🟡 run status = COMPLETED"| POST
+    end
+
+    subgraph DATA["🟢 Data-flow / typed reference resolution"]
+        HI["🟢 Human input values<br/>addressed by fieldId"]
+        NO["🟢 Node-output references<br/>addressed by nodeId"]
+        RR["⚪ Typed reference resolver<br/>WORKFLOW_HUMAN_INPUT_FIELD · WORKFLOW_NODE"]
+        TP["⚪ Materialized node task prompt"]
+
+        HI -->|"🟢 @[...](type=WORKFLOW_HUMAN_INPUT_FIELD)"| RR
+        NO -->|"🟢 @[...](type=WORKFLOW_NODE)"| RR
+        RR -->|"⚪ resolution step"| TP
+        TP -->|"🟡 resolved runtime user message"| M
+        TP -->|"🟡 resolved runtime user message"| C
+        TP -->|"🟡 resolved runtime user message"| A
+        TP -->|"🟡 resolved runtime user message"| Q
+        TP -->|"🟡 resolved runtime user message"| O
+
+        M -->|"🟡 persisted output"| NO
+        C -->|"🟡 persisted output"| NO
+        A -->|"🟡 persisted output"| NO
+        Q -->|"🟡 persisted output"| NO
+    end
+
+    subgraph TOOLS["🟡 Inner agent-tool loop — HTML runtime"]
+        DISC["🟡 search_workspace_tools ×3 (tool discovery)"]
+        CALL["🟡 use_workspace_tool → search_news ×2"]
+        ERR1["🟡 Validation error — bad params"]
+        ERR2["🟡 Rate-limit error — provider quota"]
+        TEXT["🟡 Final research output (still generated)"]
+
+        M -->|"🟡 tool-call trace"| DISC
+        DISC -->|"🟡 exact tool_name/category instruction"| CALL
+        CALL -->|"🟡 structured error result"| ERR1
+        ERR1 -->|"🟡 corrected invocation observed"| CALL
+        CALL -->|"🟡 structured error result"| ERR2
+        ERR2 -->|"🟡 node still COMPLETED"| TEXT
+    end
+
+    subgraph DELEGATION["🟢/🟡 Orchestrator-worker execution"]
+        PLAN["🟡 Task decomposition<br/>maxTaskCount=10 (JSON config)"]
+        W1["🟡 Facebook task → Social Media Copywriter"]
+        W2["🟡 LinkedIn task → Social Media Copywriter"]
+        W3["🟡 Newsletter task → Email Marketing Specialist"]
+
+        O -->|"🟢 orchestratorPrompt delegates"| PLAN
+        PLAN -->|"🟡 worker record"| W1
+        PLAN -->|"🟡 worker record"| W2
+        PLAN -->|"🟡 worker record"| W3
+    end
+
+    subgraph ABSENT["🟢 Not configured in this workflow — JSON"]
+        L["🟢 LoopNode = null"]
+        R["🟢 RouterNode = null"]
+        G["🟢 GateNode = null"]
+        E["🟢 EvaluatorOptimizerNode = null"]
+    end
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HYPOTHESES ================= -->
+  <section id="hypotheses">
+    <h2>2. Hypothesis List</h2>
+    <p class="section-desc">Mỗi hypothesis gắn evidence, nguồn (JSON/HTML), và mức độ tin cậy. Card có badge <span class="badge carried" style="margin:0 2px;">carried-over</span> nghĩa là evidence gốc không được trích lại tường minh trong bộ tài liệu này — cần đọc thận trọng hơn các card khác.</p>
+
+    <div class="filters" id="filters">
+      <button data-f="all" class="active">Tất cả</button>
+      <button data-f="High">High</button>
+      <button data-f="Medium">Medium</button>
+      <button data-f="Low">Low / Unknown</button>
+      <button data-f="json">Nguồn: JSON</button>
+      <button data-f="html">Nguồn: HTML</button>
+      <button data-f="carried">⚠ Carried-over</button>
+    </div>
+
+    <div id="hyp-list"></div>
+  </section>
+
+  <!-- ================= FINDINGS ================= -->
+  <section id="findings">
+    <h2>3. Findings chi tiết </h2>
+    <p class="section-desc">14 finding đầy đủ, mỗi finding theo cấu trúc Finding → Evidence → Impact → Confidence. Finding 10–14 (guardrails) được viền màu cam để nhóm thị giác riêng, vì đây là khía cạnh đề bài yêu cầu tường minh.</p>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 1</span><span class="badge High">High</span></div>
+      <h3>Control-flow graph được xác nhận trực tiếp</h3>
+      <p><b>Finding:</b> Workflow là một graph tuyến tính gồm sáu node và năm cạnh, không có nhánh.</p>
+      <div class="label">Evidence — JSON Edges</div>
+      <pre>"Edges": [
+  { "sourceNodeId": "...ad5", "targetNodeId": "...ad6" },
+  { "sourceNodeId": "...ad6", "targetNodeId": "...ad7" },
+  { "sourceNodeId": "...ad7", "targetNodeId": "...ad8" },
+  { "sourceNodeId": "...ad8", "targetNodeId": "...ad9" },
+  { "sourceNodeId": "...ad9", "targetNodeId": "...ada" }
+]</pre>
+      <div class="label">Evidence — HTML runtime timestamps (non-overlapping)</div>
+      <pre>ad5  10:18:58.574Z → 10:18:58.994Z
+ad6  10:19:10.149Z → 10:19:40.393Z
+ad7  10:19:43.870Z → 10:20:05.277Z
+ad8  10:20:08.666Z → 10:20:40.189Z
+ad9  10:20:43.414Z → 10:21:09.873Z
+ada  10:21:13.501Z → 10:23:33.828Z</pre>
+      <p><b>Impact:</b> JSON biến topology từ inference thành cấu hình trực tiếp; HTML xác nhận các node thực sự chạy không overlap, đúng thứ tự graph.</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 2</span><span class="badge High">High</span></div>
+      <h3>Control flow và data flow là hai cơ chế riêng biệt</h3>
+      <p><b>Finding:</b> Control dependency dùng <code>Edges</code>; data dependency dùng typed reference trong prompt.</p>
+      <div class="label">Evidence</div>
+      <pre>Control edge: { "sourceNodeId": "...ad6", "targetNodeId": "...ad7" }
+
+Data reference:
+@[Market & Competitor Research](type=WORKFLOW_NODE&workflowNodeId=6a58ac59185298d443590ad6)
+
+Human-input reference (namespace khác):
+@[Primary Topic/Keyword](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae3)</pre>
+      <p><b>Impact:</b> Kiến trúc gồm hai lớp — (1) scheduler đọc Edges để quyết định thứ tự node, (2) reference resolver đọc typed ID để materialize dữ liệu vào prompt. 18/18 references trong JSON đều trỏ đến ID tồn tại, không có dangling reference.</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 3</span><span class="badges"><span class="badge High">High</span><span class="badge Low">Unknown (payload)</span></span></div>
+      <h3>Context propagation có tính chọn lọc, không phải shared transcript</h3>
+      <p><b>Finding:</b> Mỗi node khai báo cụ thể input nào nó cần thông qua typed reference, không nhận toàn bộ transcript.</p>
+      <div class="label">Evidence — resolved runtime prompt</div>
+      <pre>"role":"user","parts":[{"type":"text","text":"Conduct a deep research report on
+AI Workflow Automation for Small Businesses for the target audience: Small
+business owners... Analyze these competitors: HubSpot AI, Jasper AI, Copy.ai,
+Writesonic, Anyword. Write in \"English\"."}]</pre>
+      <p><b>Impact:</b> Bằng chứng phù hợp với explicit/selective context assembly (template + selected predecessor output + selected input fields → execution prompt). Không chứng minh được payload cuối/truncation.</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 4</span><span class="badge High">High — corrected</span></div>
+      <h3>Content Brief có 4 required + 1 optional field, không phải 5 required</h3>
+      <div class="label">Evidence — HTML runtime screenshot</div>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/content_brief_fields.png" alt="Content Brief hiển thị 4 trường có dấu sao bắt buộc và Specific Competitors không có dấu sao">
+        <figcaption>Content Brief: 4 required fields + 1 optional field.</figcaption>
+      </figure>
+      <p><b>Impact:</b> Sửa lại kết luận sai của báo cáo trước ("5 trường bắt buộc").</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 5</span><span class="badge High">High</span></div>
+      <h3>Human input là một node chính thức trong control graph</h3>
+      <div class="label">Evidence — JSON node definition</div>
+      <pre>{ "label": "Content Brief", "type": "HUMAN_INPUT",
+  "HumanInputNode": { "id": "6a58ac5c185298d443590ae2", "Fields": [...] } }</pre>
+      <div class="label">Evidence — manual trigger và completed status (HTML runtime screenshot)</div>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/run_header_manual_completed.png" alt="Workflow header hiển thị MANUAL, 36 AI credits và Completed">
+        <figcaption>Workflow run header: MANUAL trigger, 36 AI credits, Completed.</figcaption>
+      </figure>
+      <div class="label">Evidence — serialized wait/resume state</div>
+      <pre>"waitState":null,"waiterObservedAt":null,
+"waitResumeRequestedAt":null,"waitResumeAckedAt":null</pre>
+      <p><b>Impact:</b> HITL ban đầu là một phần orchestration graph, không chỉ UI affordance. Không có intermediate wait/approval event trong run được ghi lại.</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 6</span><span class="badges"><span class="badge High">High (absence)</span><span class="badge Medium">Medium (semantics)</span></span></div>
+      <h3>Không có loop, router, gate hoặc evaluator trong workflow này</h3>
+      <div class="label">Evidence — subtype slots đều null</div>
+      <pre>"LoopNode": null, "RouterNode": null, "OrchestratorWorkerNode": null,
+"EvaluatorOptimizerNode": null, "GateNode": null, "ChatNode": null,
+"ArtifactNode": null, "InfoNode": null, "StickyNoteNode": null</pre>
+      <p><b>Impact:</b> Xác nhận workflow này không cấu hình loop/router/gate/evaluator/chat/artifact node riêng. Sự tồn tại của các field schema là bằng chứng PAL data model nhận diện các loại node này trên toàn nền tảng — nhưng runtime semantics của chúng không quan sát được từ run này.</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 7</span><span class="badge High">High</span></div>
+      <h3>Orchestrator là cấu hình có chủ đích, không phải nhãn UI</h3>
+      <div class="label">Evidence — orchestratorPrompt (JSON)</div>
+      <pre>"type": "ORCHESTRATOR_WORKER",
+"orchestratorPrompt": "Analyze the final article from @[SEO & Quality Review]
+... and delegate the creation of distribution materials (Facebook post,
+LinkedIn post, and Newsletter) to the specialists."</pre>
+      <div class="label">Evidence — 3 worker task panels (HTML runtime screenshots)</div>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/orchestrator_task_1_facebook.png" alt="Task 1 Facebook được giao cho Social Media Copywriter">
+        <figcaption>Task 1: Facebook — Social Media Copywriter.</figcaption>
+      </figure>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/orchestrator_task_2_linkedin.png" alt="Task 2 LinkedIn được giao cho Social Media Copywriter">
+        <figcaption>Task 2: LinkedIn — Social Media Copywriter.</figcaption>
+      </figure>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/orchestrator_task_3_newsletter.png" alt="Task 3 Newsletter được giao cho Email Marketing Specialist">
+        <figcaption>Task 3: Newsletter — Email Marketing Specialist.</figcaption>
+      </figure>
+      <p><b>Impact:</b> JSON xác nhận intent cấu hình; HTML xác nhận runtime tương ứng. Lưu ý: agentId cho task index 1 (Facebook) không xuất hiện trực tiếp trong đoạn worker-record trích ở Finding này — gán "Social Media Copywriter" cho Facebook suy ra từ WorkerAgents list (agentId ...ae0 = Social Media Copywriter), không phải từ chính bản ghi task 1.</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 8</span><span class="badge High">High</span></div>
+      <h3>JSON là structural export, không phải full execution manifest</h3>
+      <p><b>Finding:</b> Agent node trong JSON chỉ chứa <code>id</code> + <code>prompt</code>. Không có: agentId, system prompt, tools, knowledge sources, memory settings, model ID, temperature, permissions, maxTaskCount, retry/timeout/concurrency, execution timestamps, outputs.</p>
+      <div class="label">Evidence — các field này chỉ xuất hiện trong HTML runtime</div>
+      <pre>"synthesizerPrompt":null,"maxTaskCount":10,"OrchestratorAgent":{"id":"...adf"}
+"isMemoryEnabled":false,"languageModelId":null,"maxTokens":null,
+"temperature":null,"isBrowserUseEnabled":false,"isComputerUseEnabled":false</pre>
+      <p><b>Impact:</b> Sự vắng mặt trong JSON không được dùng để kết luận capability không tồn tại — JSON và HTML bổ sung cho nhau, không mâu thuẫn.</p>
+    </div>
+
+    <div class="finding">
+      <div class="finding-head"><span class="finding-num">FINDING 9</span><span class="badge High">High</span></div>
+      <h3>SELECT field không export options hoặc default</h3>
+      <div class="label">Evidence — JSON configuration</div>
+      <pre>{ "label": "Output Language", "type": "SELECT", "required": true, "config": null }</pre>
+      <div class="label">Evidence — HTML runtime screenshot</div>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/content_brief_fields.png" alt="Output Language được resolve thành English trong Content Brief">
+        <figcaption>Runtime value displayed by the SELECT field: English.</figcaption>
+      </figure>
+      <p><b>Impact:</b> Không biết danh sách ngôn ngữ hợp lệ, giá trị mặc định, hay cách UI validate lựa chọn — chỉ biết giá trị đã chọn.</p>
+    </div>
+
+    <!-- Guardrails 10-14 -->
+    <div class="finding guardrail">
+      <div class="finding-head"><span class="finding-num">FINDING 10 — GUARDRAIL</span><span class="badges"><span class="badge High">High (behavior)</span><span class="badge Low">Unknown (owner)</span></span></div>
+      <h3>Tool schema validation được thực thi tại tool boundary</h3>
+      <div class="label">Evidence — invalid call bị từ chối</div>
+      <pre>Input:  {"tool_name":"search_news","category":"api_action","tool_parameters":{}}
+Output: {"error":{"message":"Validation Error: Query must be at least 1 character(s)"}}</pre>
+      <p><b>Impact:</b> Có ít nhất một validation boundary cho required tool parameters. Không xác định được đây là PAL tự thực thi hay tool provider trả về.</p>
+    </div>
+
+    <div class="finding guardrail">
+      <div class="finding-head"><span class="finding-num">FINDING 11 — GUARDRAIL</span><span class="badge High">High</span></div>
+      <h3>Rate limiting được truyền về agent như structured tool result, không fail node</h3>
+      <div class="label">Evidence — valid query nhưng bị từ chối do quota</div>
+      <pre>Input:  {"tool_name":"search_news","tool_parameters":
+         {"query":"AI workflow automation trends small business 2024 2025"}}
+Output: {"status":"error","code":"rateLimited","message":"You have made too
+         many requests recently. Developer accounts are limited to 100
+         requests over a 24 hour period (50 requests available every 12
+         hours). Please upgrade to a paid plan if you need more requests."}
+
+Node status ngay sau đó: "status":"COMPLETED"
+Output cuối vẫn có: "Market Research Report: AI Workflow Automation..."</pre>
+      <div class="label">Evidence — tool sequence và final report marker (HTML runtime screenshot)</div>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/market_tool_sequence.png" alt="Ba lần search_workspace_tools, hai lần Search News and Blog Articles, sau đó là Market Research Report">
+        <figcaption>Tool-call sequence followed by the final Market Research Report.</figcaption>
+      </figure>
+      <figure class="evidence-shot">
+        <img src="evidence_screenshots/market_report_after_tool_errors.png" alt="Tiêu đề Market Research Report xuất hiện sau chuỗi tool calls">
+        <figcaption>Final output marker after the failed external search attempts.</figcaption>
+      </figure>
+      <p><b>Impact:</b> Rate limit là guardrail thực tế ở external tool/provider boundary. PAL giữ lỗi ở dạng structured result và không tự động fail toàn node — agent vẫn tạo output cuối cùng. Không rõ đây là workflow-level retry hay agent tự quyết định tiếp tục.</p>
+    </div>
+
+    <div class="finding guardrail">
+      <div class="finding-head"><span class="finding-num">FINDING 12 — GUARDRAIL</span><span class="badges"><span class="badge High">High (tồn tại)</span><span class="badge Medium">Medium (enforcement)</span></span></div>
+      <h3>Tool discovery response đặt constraint về cách invoke tool</h3>
+      <div class="label">Evidence</div>
+      <pre>"instructions": "To use a found tool, call use_workspace_tool with the exact
+tool_name, category, and required parameters. For composio tools, also
+include the app_name. Only use a tool if its description clearly matches
+what you need."</pre>
+      <p><b>Impact:</b> Instruction-level guardrail tại tool interface. HTML xác nhận instruction được cung cấp, nhưng không chứng minh hard enforcement với mọi phần của instruction.</p>
+    </div>
+
+    <div class="finding guardrail">
+      <div class="finding-head"><span class="finding-num">FINDING 13 — GUARDRAIL</span><span class="badges"><span class="badge High">High (config)</span><span class="badge Low">Unknown (enforcement)</span></span></div>
+      <h3>Capability flags vô hiệu hóa memory, browser use, computer use</h3>
+      <div class="label">Evidence</div>
+      <pre>"forceGetContextFromKnowledgeSources":null,"isMemoryEnabled":false,
+"languageModelId":null,"maxTokens":null,"temperature":null,
+"imageAspectRatio":null,"isBrowserUseEnabled":false,"isComputerUseEnabled":false</pre>
+      <p><b>Impact:</b> Đối với agent/run được quan sát: memory, browser use, computer use đều tắt; không có forced knowledge-source context. Evidence xác nhận configuration state, không chứng minh enforcement (không có blocked-attempt trace).</p>
+    </div>
+
+    <div class="finding guardrail">
+      <div class="finding-head"><span class="finding-num">FINDING 14 — GUARDRAIL</span><span class="badges"><span class="badge High">High (limit)</span><span class="badge Low">Unknown (overflow)</span></span></div>
+      <h3>Orchestrator có explicit task-count limit</h3>
+      <div class="label">Evidence</div>
+      <pre>"orchestratorAgentId":"6a58ac5b185298d443590adf","synthesizerPrompt":null,
+"maxTaskCount":10,"OrchestratorAgent":{"id":"6a58ac5b185298d443590adf"}</pre>
+      <p><b>Impact:</b> <code>maxTaskCount</code> là bounded-delegation guardrail giới hạn fan-out của orchestrator. Run chỉ tạo 3/10 task — không quan sát được hành vi khi vượt ngưỡng.</p>
+    </div>
+  </section>
+
+
+</div>
+
+
+<script>
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  securityLevel: 'loose',
+  themeVariables: {
+    background: '#ffffff',
+    primaryColor: '#eef4ff',
+    primaryTextColor: '#172033',
+    primaryBorderColor: '#7f9bd8',
+    secondaryColor: '#f4f7fb',
+    secondaryTextColor: '#172033',
+    secondaryBorderColor: '#aebbd0',
+    tertiaryColor: '#fff8e8',
+    tertiaryTextColor: '#172033',
+    tertiaryBorderColor: '#d8ad60',
+    lineColor: '#5e6e88',
+    textColor: '#172033',
+    clusterBkg: '#f8faff',
+    clusterBorder: '#b8c7df',
+    edgeLabelBackground: '#ffffff',
+    fontFamily: 'ui-sans-serif, system-ui',
+    fontSize: '13px'
+  },
+  flowchart: { htmlLabels: true, curve: 'basis', useMaxWidth: false }
+});
+
+// ---- Diagram interaction layer (keeps Mermaid source unchanged) ----
+const diagramSources = new Map(
+  Array.from(document.querySelectorAll('.mermaid'), el => [el, el.textContent])
+);
+
+function diagramButton(action, icon, label, extraClass=''){
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.action = action;
+  button.className = extraClass;
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = `<span aria-hidden="true">${icon}</span><span class="label">${label}</span>`;
+  return button;
+}
+
+function downloadBlob(blob, filename){
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(link.href), 1000);
+}
+
+function svgPayload(svg){
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  const viewBox = svg.viewBox.baseVal;
+  if(viewBox && viewBox.width && viewBox.height){
+    clone.setAttribute('width', viewBox.width);
+    clone.setAttribute('height', viewBox.height);
+  }
+  return new XMLSerializer().serializeToString(clone);
+}
+
+function setupDiagram(diagram, index){
+  const box = diagram.closest('.diagram-box');
+  const source = diagramSources.get(diagram);
+  const svg = diagram.querySelector('svg');
+  if(!box || !svg) return;
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'diagram-toolbar';
+  toolbar.setAttribute('role', 'toolbar');
+  toolbar.setAttribute('aria-label', 'Diagram controls');
+
+  const controls = [
+    diagramButton('zoom-in', '+', 'Zoom +'),
+    diagramButton('zoom-out', '−', 'Zoom −'),
+    diagramButton('reset', '↺', 'Reset'),
+    diagramButton('fit', '⊡', 'Fit'),
+    diagramButton('pan', '✋', 'Pan', 'active')
+  ];
+  controls.forEach(control=>toolbar.appendChild(control));
+
+  const zoomLevel = document.createElement('span');
+  zoomLevel.className = 'zoom-level';
+  zoomLevel.setAttribute('aria-live', 'polite');
+  toolbar.appendChild(zoomLevel);
+
+  const spacer = document.createElement('span');
+  spacer.className = 'toolbar-spacer';
+  toolbar.appendChild(spacer);
+
+  [
+    diagramButton('fullscreen', '⛶', 'Fullscreen'),
+    diagramButton('png', '↓', 'Download PNG'),
+    diagramButton('svg', '↓', 'Download SVG'),
+    diagramButton('source', '↓', 'Mermaid source')
+  ].forEach(control=>toolbar.appendChild(control));
+
+  const viewport = document.createElement('div');
+  viewport.className = 'diagram-viewport';
+  viewport.tabIndex = 0;
+  viewport.setAttribute('aria-label', 'Interactive architecture diagram. Drag to pan and use the toolbar to zoom.');
+
+  const stage = document.createElement('div');
+  stage.className = 'diagram-stage';
+  diagram.parentNode.insertBefore(toolbar, diagram);
+  diagram.parentNode.insertBefore(viewport, diagram);
+  stage.appendChild(diagram);
+  viewport.appendChild(stage);
+
+  const hint = document.createElement('div');
+  hint.className = 'diagram-hint';
+  hint.textContent = 'Kéo để di chuyển · Cuộn để zoom';
+  viewport.appendChild(hint);
+
+  const viewBox = svg.viewBox.baseVal;
+  const naturalWidth = Math.max(viewBox && viewBox.width || 0, 900);
+  const naturalHeight = Math.max(viewBox && viewBox.height || 0, 420);
+  svg.setAttribute('width', naturalWidth);
+  svg.setAttribute('height', naturalHeight);
+  stage.style.width = `${naturalWidth}px`;
+  stage.style.height = `${naturalHeight}px`;
+
+  let scale = 1;
+  let x = 0;
+  let y = 0;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let originX = 0;
+  let originY = 0;
+
+  const apply = ()=>{
+    scale = Math.min(4, Math.max(.15, scale));
+    stage.style.transform = `translate(${x}px,${y}px) scale(${scale})`;
+    zoomLevel.textContent = `${Math.round(scale * 100)}%`;
+  };
+
+  const centerAt = nextScale=>{
+    const rect = viewport.getBoundingClientRect();
+    const worldX = (rect.width / 2 - x) / scale;
+    const worldY = (rect.height / 2 - y) / scale;
+    scale = nextScale;
+    x = rect.width / 2 - worldX * scale;
+    y = rect.height / 2 - worldY * scale;
+    apply();
+  };
+
+  const fit = ()=>{
+    const rect = viewport.getBoundingClientRect();
+    scale = Math.min((rect.width - 36) / naturalWidth, (rect.height - 36) / naturalHeight, 1);
+    x = (rect.width - naturalWidth * scale) / 2;
+    y = (rect.height - naturalHeight * scale) / 2;
+    apply();
+  };
+
+  const reset = ()=>{
+    const rect = viewport.getBoundingClientRect();
+    scale = 1;
+    x = Math.max(18, (rect.width - naturalWidth) / 2);
+    y = Math.max(18, (rect.height - naturalHeight) / 2);
+    apply();
+  };
+
+  viewport.addEventListener('pointerdown', event=>{
+    if(event.button !== 0) return;
+    dragging = true;
+    startX = event.clientX;
+    startY = event.clientY;
+    originX = x;
+    originY = y;
+    viewport.classList.add('is-panning');
+    viewport.setPointerCapture(event.pointerId);
+  });
+  viewport.addEventListener('pointermove', event=>{
+    if(!dragging) return;
+    x = originX + event.clientX - startX;
+    y = originY + event.clientY - startY;
+    apply();
+  });
+  const stopPan = event=>{
+    dragging = false;
+    viewport.classList.remove('is-panning');
+    if(viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+  };
+  viewport.addEventListener('pointerup', stopPan);
+  viewport.addEventListener('pointercancel', stopPan);
+  viewport.addEventListener('wheel', event=>{
+    event.preventDefault();
+    const rect = viewport.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    const worldX = (pointerX - x) / scale;
+    const worldY = (pointerY - y) / scale;
+    scale *= event.deltaY < 0 ? 1.12 : .89;
+    scale = Math.min(4, Math.max(.15, scale));
+    x = pointerX - worldX * scale;
+    y = pointerY - worldY * scale;
+    apply();
+  }, {passive:false});
+
+  toolbar.addEventListener('click', async event=>{
+    const button = event.target.closest('button');
+    if(!button) return;
+    const action = button.dataset.action;
+    if(action === 'zoom-in') centerAt(scale * 1.2);
+    if(action === 'zoom-out') centerAt(scale / 1.2);
+    if(action === 'reset') reset();
+    if(action === 'fit') fit();
+    if(action === 'pan'){
+      button.classList.add('active');
+      viewport.focus();
+    }
+    if(action === 'fullscreen'){
+      if(document.fullscreenElement) await document.exitFullscreen();
+      else await box.requestFullscreen();
+      setTimeout(fit, 80);
+    }
+    if(action === 'svg'){
+      downloadBlob(new Blob([svgPayload(svg)], {type:'image/svg+xml;charset=utf-8'}), `architecture-diagram-${index + 1}.svg`);
+    }
+    if(action === 'source'){
+      downloadBlob(new Blob([source], {type:'text/plain;charset=utf-8'}), `architecture-diagram-${index + 1}.mmd`);
+    }
+    if(action === 'png'){
+      const payload = svgPayload(svg);
+      const url = URL.createObjectURL(new Blob([payload], {type:'image/svg+xml;charset=utf-8'}));
+      const image = new Image();
+      image.onload = ()=>{
+        const ratio = Math.min(2, window.devicePixelRatio || 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(naturalWidth * ratio);
+        canvas.height = Math.ceil(naturalHeight * ratio);
+        const context = canvas.getContext('2d');
+        context.scale(ratio, ratio);
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, naturalWidth, naturalHeight);
+        context.drawImage(image, 0, 0, naturalWidth, naturalHeight);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(blob=>blob && downloadBlob(blob, `architecture-diagram-${index + 1}.png`), 'image/png');
+      };
+      image.src = url;
+    }
+  });
+
+  document.addEventListener('fullscreenchange', ()=>{
+    const fullscreenButton = toolbar.querySelector('[data-action="fullscreen"]');
+    fullscreenButton.classList.toggle('active', document.fullscreenElement === box);
+    fullscreenButton.title = document.fullscreenElement === box ? 'Exit fullscreen' : 'Fullscreen';
+    setTimeout(fit, 80);
+  });
+
+  const resizeObserver = new ResizeObserver(()=>fit());
+  resizeObserver.observe(viewport);
+  requestAnimationFrame(fit);
+}
+
+mermaid.run({querySelector:'.mermaid'}).then(()=>{
+  document.querySelectorAll('.mermaid').forEach(setupDiagram);
+}).catch(error=>console.error('Unable to render Mermaid diagram:', error));
+
+// ---- Hypothesis data ----
+const hypotheses = [
+  {t:"Workflow chính là pipeline tuyến tính", conf:"High", src:["json","html"], carried:false,
+   ev:"Confirmed bằng 5 explicit Edges (Finding 1); HTML timestamps xác nhận execution theo đúng thứ tự, không overlap.",
+   note:"Graph tuyến tính 6 node, không branching."},
+  {t:"Scheduler chỉ dispatch node sau khi predecessor hoàn tất", conf:"Medium", src:["html"], carried:false,
+   ev:"HTML timestamps (Finding 1) hỗ trợ nhưng chỉ chứng minh 'không overlap', không chứng minh cơ chế dispatch chờ-hoàn-tất-mới-bắt-đầu.",
+   note:"JSON chỉ định dependency, không chỉ định completion semantics."},
+  {t:"PAL có reference resolver (2 namespace)", conf:"High", src:["json"], carried:false,
+   ev:"18/18 typed references trong JSON đều trỏ đến ID tồn tại (Finding 2); 2 namespace: WORKFLOW_NODE và WORKFLOW_HUMAN_INPUT_FIELD.",
+   note:"Không có dangling reference nào được quan sát."},
+  {t:"Context được truyền bằng explicit dataflow (không phải shared transcript)", conf:"High", src:["json","html"], carried:false,
+   ev:"Finding 3: mỗi node khai báo cụ thể input cần; resolved runtime prompt cho thấy nội dung khớp với template + reference.",
+   note:"Unknown: payload cuối cùng / có truncation hay không."},
+  {t:"Toàn bộ output predecessor được inject nguyên vẹn vào node sau", conf:"Low", src:[], carried:false,
+   ev:"Không có evidence trực tiếp cho việc output được truyền full/summary/truncated.",
+   note:"Chưa xác định được."},
+  {t:"Mỗi node có transcript độc lập (không chia sẻ 1 conversation dài)", conf:"High", src:["html"], carried:false,
+   ev:"Finding 8: cấu trúc message role:user / role:assistant / step-start lặp lại riêng cho từng node execution.",
+   note:"Evidence trực tiếp trong Findings 1, 8."},
+  {t:"Market Research agent có inner tool loop", conf:"High", src:["html"], carried:false,
+   ev:"Findings 8, 10, 11: search_workspace_tools ×3 → use_workspace_tool ×2 (1 validation error, 1 rate-limit error) → final output.",
+   note:"Toàn bộ trace nằm trong HTML runtime, đã trích lại."},
+  {t:"Tool interface là discovery-then-invoke", conf:"High", src:["html"], carried:false,
+   ev:"Finding 12: instruction rõ ràng 'call use_workspace_tool with the exact tool_name, category...' sau khi search_workspace_tools trả kết quả.",
+   note:"Evidence trực tiếp, đã trích lại."},
+  {t:"Tool error là non-fatal (node vẫn hoàn tất)", conf:"High", src:["html"], carried:false,
+   ev:"Findings 10, 11: 2 lỗi tool (validation + rate-limit) nhưng node vẫn 'COMPLETED' và tạo final report.",
+   note:"Evidence trực tiếp, đã trích lại."},
+  {t:"Orchestrator phân rã task động", conf:"High", src:["json","html"], carried:false,
+   ev:"Finding 7: orchestratorPrompt yêu cầu delegate; HTML xác nhận 3 worker task thực tế được tạo và hoàn tất.",
+   note:"JSON xác nhận intent, HTML xác nhận runtime."},
+  {t:"3 worker task chạy song song", conf:"Low", src:[], carried:false,
+   ev:"Không có timestamp hay concurrency flag cho worker task trong bằng chứng hiện có.",
+   note:"Chưa xác định được song song hay tuần tự."},
+  {t:"maxTaskCount=10 giới hạn fan-out của orchestrator", conf:"High", src:["html"], carried:false,
+   ev:"Finding 14: trường maxTaskCount:10 xuất hiện trực tiếp trong HTML runtime config.",
+   note:"Áp dụng cho cấu hình của run này."},
+  {t:"Không có synthesizer riêng cho orchestrator-worker", conf:"High", src:["html"], carried:false,
+   ev:"Findings 8, 14: synthesizerPrompt:null xuất hiện trực tiếp.",
+   note:"Áp dụng cho run này."},
+  {t:"Memory dài hạn không được dùng trong run này", conf:"High", src:["html"], carried:false,
+   ev:"Finding 13: isMemoryEnabled:false xuất hiện trực tiếp trong agent config.",
+   note:"Chỉ áp dụng cho agent config của run được quan sát."},
+  {t:"Browser use / computer use bị tắt", conf:"High", src:["html"], carried:false,
+   ev:"Finding 13: isBrowserUseEnabled:false, isComputerUseEnabled:false xuất hiện trực tiếp.",
+   note:"Configuration state, không chứng minh enforcement."},
+  {t:"HITL chỉ diễn ra ở đầu và sau run, không có gate giữa các agent", conf:"High", src:["json","html"], carried:false,
+   ev:"Finding 5: 1 HUMAN_INPUT node ở đầu graph; không có GateNode; HTML cho thấy waitState:null suốt run.",
+   note:"Đúng cho workflow/run này, không phải toàn nền tảng."},
+  {t:"Content Brief có 5 field bắt buộc", conf:"High", src:["json"], carried:false,
+   ev:"Finding 4: JSON cho thấy chỉ 4 required + 1 optional — hypothesis ban đầu SAI, đã sửa.",
+   note:"Contradicted — corrected."},
+  {t:"Workflow này không dùng Loop/Router/Gate/Evaluator", conf:"High", src:["json"], carried:false,
+   ev:"Finding 6: toàn bộ subtype slot tương ứng đều null trong mọi node.",
+   note:"Newly confirmed."},
+  {t:"PAL schema phân biệt nhiều specialized node type (Loop, Router, Gate, Evaluator, Chat, Artifact...)", conf:"Medium", src:["json"], carried:false,
+   ev:"Finding 6: các field tồn tại trong schema dù = null, chứng tỏ data model nhận diện các type này.",
+   note:"Runtime semantics trên toàn nền tảng chưa biết — chỉ biết schema tồn tại."},
+  {t:"Tool schema validation là hard guardrail tại boundary", conf:"High", src:["html"], carried:false,
+   ev:"Finding 10: request thiếu query bị từ chối với message cụ thể thay vì gửi tiếp.",
+   note:"Không rõ PAL hay tool provider thực thi."},
+  {t:"Rate limit thuộc external provider, không phải PAL tự áp", conf:"Medium", src:["html"], carried:false,
+   ev:"Finding 11: message rate-limit có định dạng đặc trưng của news API bên thứ ba ('Developer accounts are limited to 100 requests...').",
+   note:"Suy luận hợp lý từ nội dung message, chưa xác nhận 100%."},
+];
+
+function badgeSrc(src){
+  return src.map(s=>`<span class="badge src">${s==='json'?'🟢 JSON':'🟡 HTML'}</span>`).join('');
+}
+function confClass(c){
+  if(c==="High") return "High";
+  if(c==="Medium") return "Medium";
+  return "Low";
+}
+function render(list){
+  const el = document.getElementById('hyp-list');
+  el.innerHTML = list.map((h,i)=>`
+    <div class="hyp-card" data-i="${i}">
+      <div class="hyp-head">
+        <div class="hyp-title">${h.t}</div>
+        <div class="badges">
+          ${badgeSrc(h.src)}
+          ${h.carried?'<span class="badge carried">⚠ carried-over</span>':''}
+          <span class="badge ${confClass(h.conf)}">${h.conf}</span>
+          <span class="chev">▶</span>
+        </div>
+      </div>
+      <div class="hyp-body">
+        <div class="row"><b>Evidence:</b> ${h.ev}</div>
+        <div class="row"><b>Ghi chú:</b> ${h.note}</div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('.hyp-card').forEach(card=>{
+    card.querySelector('.hyp-head').addEventListener('click',()=>card.classList.toggle('open'));
+  });
+}
+render(hypotheses);
+
+document.querySelectorAll('#filters button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const f = btn.dataset.f;
+    let list = hypotheses;
+    if(f==='High') list = hypotheses.filter(h=>h.conf==='High');
+    else if(f==='Medium') list = hypotheses.filter(h=>h.conf==='Medium');
+    else if(f==='Low') list = hypotheses.filter(h=>h.conf==='Low'||h.conf==='Unknown');
+    else if(f==='json') list = hypotheses.filter(h=>h.src.includes('json'));
+    else if(f==='html') list = hypotheses.filter(h=>h.src.includes('html'));
+    else if(f==='carried') list = hypotheses.filter(h=>h.carried);
+    render(list);
+  });
+});
+
+// Scroll-spy for subnav
+const sections = ['diagram','hypotheses','findings','unknowns'].map(id=>document.getElementById(id)).filter(Boolean);
+const links = document.querySelectorAll('.navlink');
+window.addEventListener('scroll',()=>{
+  let idx = 0;
+  sections.forEach((s,i)=>{ if(window.scrollY + 100 >= s.offsetTop) idx = i; });
+  links.forEach(l=>l.classList.remove('active'));
+  links[idx].classList.add('active');
+});
+</script>
+</body>
+</html>

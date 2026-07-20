@@ -1,0 +1,188 @@
+{
+  "title": "SaaS Marketing Content Pipeline",
+  "category": [],
+  "Nodes": [
+    {
+      "id": "6a58ac59185298d443590ad5",
+      "label": "Content Brief",
+      "type": "HUMAN_INPUT",
+      "AgentNode": null,
+      "HumanInputNode": {
+        "id": "6a58ac5c185298d443590ae2",
+        "Fields": [
+          {
+            "id": "6a58ac5c185298d443590ae6",
+            "label": "Output Language",
+            "type": "SELECT",
+            "required": true,
+            "order": 3,
+            "config": null
+          },
+          {
+            "id": "6a58ac5c185298d443590ae4",
+            "label": "Target Audience",
+            "type": "TEXT",
+            "required": true,
+            "order": 1,
+            "config": null
+          },
+          {
+            "id": "6a58ac5c185298d443590ae7",
+            "label": "Specific Competitors to Analyze",
+            "type": "TEXT",
+            "required": false,
+            "order": 4,
+            "config": null
+          },
+          {
+            "id": "6a58ac5c185298d443590ae3",
+            "label": "Primary Topic/Keyword",
+            "type": "TEXT",
+            "required": true,
+            "order": 0,
+            "config": null
+          },
+          {
+            "id": "6a58ac5c185298d443590ae5",
+            "label": "Brand Voice",
+            "type": "TEXT",
+            "required": true,
+            "order": 2,
+            "config": null
+          }
+        ]
+      },
+      "LoopNode": null,
+      "RouterNode": null,
+      "OrchestratorWorkerNode": null,
+      "EvaluatorOptimizerNode": null,
+      "GateNode": null,
+      "ChatNode": null,
+      "ArtifactNode": null,
+      "InfoNode": null,
+      "StickyNoteNode": null
+    },
+    {
+      "id": "6a58ac59185298d443590ad6",
+      "label": "Market & Competitor Research",
+      "type": "AGENT",
+      "AgentNode": {
+        "id": "6a58ac5d185298d443590ae8",
+        "prompt": "Conduct a deep research report on @[Primary Topic/Keyword](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae3) for the target audience: @[Target Audience](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae4). Analyze these competitors: @[Specific Competitors to Analyze](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae7). Write in @[Output Language](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae6)."
+      },
+      "HumanInputNode": null,
+      "LoopNode": null,
+      "RouterNode": null,
+      "OrchestratorWorkerNode": null,
+      "EvaluatorOptimizerNode": null,
+      "GateNode": null,
+      "ChatNode": null,
+      "ArtifactNode": null,
+      "InfoNode": null,
+      "StickyNoteNode": null
+    },
+    {
+      "id": "6a58ac5a185298d443590ad7",
+      "label": "Content Strategy & Outline",
+      "type": "AGENT",
+      "AgentNode": {
+        "id": "6a58ac5d185298d443590ae9",
+        "prompt": "Based on the research from @[Market & Competitor Research](type=WORKFLOW_NODE&workflowNodeId=6a58ac59185298d443590ad6), create a comprehensive blog outline for @[Primary Topic/Keyword](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae3). Ensure it matches the @[Brand Voice](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae5) and is written in @[Output Language](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae6)."
+      },
+      "HumanInputNode": null,
+      "LoopNode": null,
+      "RouterNode": null,
+      "OrchestratorWorkerNode": null,
+      "EvaluatorOptimizerNode": null,
+      "GateNode": null,
+      "ChatNode": null,
+      "ArtifactNode": null,
+      "InfoNode": null,
+      "StickyNoteNode": null
+    },
+    {
+      "id": "6a58ac5a185298d443590ad8",
+      "label": "Long-Form SEO Article",
+      "type": "AGENT",
+      "AgentNode": {
+        "id": "6a58ac5d185298d443590aea",
+        "prompt": "Write a full long-form SEO blog article based on the outline in @[Content Strategy & Outline](type=WORKFLOW_NODE&workflowNodeId=6a58ac5a185298d443590ad7). Use the following brand voice: @[Brand Voice](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae5). Targeted Audience: @[Target Audience](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae4). Language: @[Output Language](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae6)."
+      },
+      "HumanInputNode": null,
+      "LoopNode": null,
+      "RouterNode": null,
+      "OrchestratorWorkerNode": null,
+      "EvaluatorOptimizerNode": null,
+      "GateNode": null,
+      "ChatNode": null,
+      "ArtifactNode": null,
+      "InfoNode": null,
+      "StickyNoteNode": null
+    },
+    {
+      "id": "6a58ac5a185298d443590ad9",
+      "label": "SEO & Quality Review",
+      "type": "AGENT",
+      "AgentNode": {
+        "id": "6a58ac5d185298d443590aeb",
+        "prompt": "Review and edit the article from @[Long-Form SEO Article](type=WORKFLOW_NODE&workflowNodeId=6a58ac5a185298d443590ad8) for SEO quality, readability, and alignment with the @[Brand Voice](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae5). Language: @[Output Language](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae6)."
+      },
+      "HumanInputNode": null,
+      "LoopNode": null,
+      "RouterNode": null,
+      "OrchestratorWorkerNode": null,
+      "EvaluatorOptimizerNode": null,
+      "GateNode": null,
+      "ChatNode": null,
+      "ArtifactNode": null,
+      "InfoNode": null,
+      "StickyNoteNode": null
+    },
+    {
+      "id": "6a58ac5a185298d443590ada",
+      "label": "Distribution Pack",
+      "type": "ORCHESTRATOR_WORKER",
+      "AgentNode": null,
+      "HumanInputNode": null,
+      "LoopNode": null,
+      "RouterNode": null,
+      "OrchestratorWorkerNode": {
+        "id": "6a58ac5d185298d443590aec",
+        "orchestratorPrompt": "Analyze the final article from @[SEO & Quality Review](type=WORKFLOW_NODE&workflowNodeId=6a58ac5a185298d443590ad9) and delegate the creation of distribution materials (Facebook post, LinkedIn post, and Newsletter) to the specialists. Use the brand voice: @[Brand Voice](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae5) and language: @[Output Language](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae6)."
+      },
+      "EvaluatorOptimizerNode": null,
+      "GateNode": null,
+      "ChatNode": null,
+      "ArtifactNode": null,
+      "InfoNode": null,
+      "StickyNoteNode": null
+    }
+  ],
+  "Edges": [
+    {
+      "id": "6a58ac5e185298d443590aef",
+      "sourceNodeId": "6a58ac59185298d443590ad5",
+      "targetNodeId": "6a58ac59185298d443590ad6"
+    },
+    {
+      "id": "6a58ac5e185298d443590af0",
+      "sourceNodeId": "6a58ac59185298d443590ad6",
+      "targetNodeId": "6a58ac5a185298d443590ad7"
+    },
+    {
+      "id": "6a58ac5e185298d443590af1",
+      "sourceNodeId": "6a58ac5a185298d443590ad7",
+      "targetNodeId": "6a58ac5a185298d443590ad8"
+    },
+    {
+      "id": "6a58ac5e185298d443590af2",
+      "sourceNodeId": "6a58ac5a185298d443590ad8",
+      "targetNodeId": "6a58ac5a185298d443590ad9"
+    },
+    {
+      "id": "6a58ac5f185298d443590af3",
+      "sourceNodeId": "6a58ac5a185298d443590ad9",
+      "targetNodeId": "6a58ac5a185298d443590ada"
+    }
+  ]
+}
