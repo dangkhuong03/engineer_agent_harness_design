@@ -299,7 +299,7 @@ flowchart TD
         U -->|"🟢 submits fields"| H
     end
 
-    subgraph CONTROL["🟢 Control-flow graph — JSON Edges"]
+    subgraph CONTROL["🟢 Control-flow graph "]
         S["⚪ Workflow scheduler/runtime<br/>(execution semantics inferred, not directly observed)"]
         M["🟢 Market & Competitor Research — AGENT"]
         C["🟢 Content Strategy & Outline — AGENT"]
@@ -337,7 +337,7 @@ flowchart TD
         Q -->|"🟡 persisted output"| NO
     end
 
-    subgraph TOOLS["🟡 Inner agent-tool loop — HTML runtime"]
+    subgraph TOOLS["🟡 Inner agent-tool loop"]
         DISC["🟡 search_workspace_tools ×3 (tool discovery)"]
         CALL["🟡 use_workspace_tool → search_news ×2"]
         ERR1["🟡 Validation error — bad params"]
@@ -364,7 +364,7 @@ flowchart TD
         PLAN -->|"🟡 worker record"| W3
     end
 
-    subgraph ABSENT["🟢 Not configured in this workflow — JSON"]
+    subgraph ABSENT["🟢 Not configured in this workflow"]
         L["🟢 LoopNode = null"]
         R["🟢 RouterNode = null"]
         G["🟢 GateNode = null"]
