@@ -143,6 +143,25 @@
   .filters button:hover{border-color:#9db4ee;color:var(--accent);}
   .filters button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 
+  /* Confidence guide */
+  .confidence-guide{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:17px 18px;margin:0 0 18px;box-shadow:var(--shadow-sm);
+  }
+  .confidence-guide h3{font-size:14px;margin:0 0 11px;color:var(--text);}
+  .confidence-grid{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+  }
+  .confidence-item{
+    display:grid;grid-template-columns:auto 1fr;align-items:start;gap:9px;
+    padding:10px 11px;border:1px solid var(--border);border-radius:9px;
+    background:#fbfcfe;color:var(--muted);font-size:12.5px;line-height:1.55;
+  }
+  .confidence-item .badge{margin-top:1px;}
+  .confidence-note{
+    margin:11px 0 0;color:var(--muted);font-size:12.5px;
+  }
+
   /* Hypothesis cards */
   .hyp-card{
     background:var(--panel);border:1px solid var(--border);border-radius:10px;
@@ -218,6 +237,7 @@
     .wrap{padding:0 16px 64px;}
     header.top{padding:38px 16px 30px;}
     nav.subnav .inner{padding:0 10px;}
+    .confidence-grid{grid-template-columns:1fr;}
     nav.subnav a{padding:13px 10px 11px;}
     section{padding:42px 0 18px;}
     .legend{display:grid;gap:10px;padding:13px 14px;}
@@ -359,6 +379,30 @@ flowchart TD
   <section id="hypotheses">
     <h2>2. Hypothesis List</h2>
     <p class="section-desc">Mỗi hypothesis gắn evidence, nguồn (JSON/HTML), và mức độ tin cậy. Card có badge <span class="badge carried" style="margin:0 2px;">carried-over</span> nghĩa là evidence gốc không được trích lại tường minh trong bộ tài liệu này — cần đọc thận trọng hơn các card khác.</p>
+
+    <!-- ADDED: định nghĩa các mức confidence để tránh hiểu badge như kết luận đúng/sai tuyệt đối. -->
+    <aside class="confidence-guide" aria-labelledby="confidence-guide-title">
+      <h3 id="confidence-guide-title">Cách đọc mức độ tin cậy (Confidence Level)</h3>
+      <div class="confidence-grid">
+        <div class="confidence-item">
+          <span class="badge High">High</span>
+          <span>Bằng chứng quan sát được hỗ trợ trực tiếp và mạnh cho hypothesis; còn ít khoảng trống suy luận. Không có nghĩa là đã biết chắc toàn bộ cơ chế nội bộ.</span>
+        </div>
+        <div class="confidence-item">
+          <span class="badge Medium">Medium</span>
+          <span>Bằng chứng hỗ trợ hypothesis nhưng vẫn cần một bước suy luận, hoặc chỉ xác nhận được một phần hành vi/cấu hình.</span>
+        </div>
+        <div class="confidence-item">
+          <span class="badge Low">Low</span>
+          <span>Hypothesis hợp lý nhưng bằng chứng hiện có yếu, gián tiếp, hoặc có nhiều cách giải thích khác cũng phù hợp.</span>
+        </div>
+        <div class="confidence-item">
+          <span class="badge Unknown">Unknown</span>
+          <span>Chưa có đủ bằng chứng để kết luận. “Unknown” không có nghĩa là cơ chế đó không tồn tại hoặc hypothesis là sai.</span>
+        </div>
+      </div>
+      <p class="confidence-note"><span class="badge carried">⚠ carried-over</span> là trạng thái của <b>bằng chứng</b>, không phải một mức confidence: đánh giá được kế thừa từ phân tích HTML trước đó nhưng chưa được tái xác minh đầy đủ ngay trong báo cáo này.</p>
+    </aside>
 
     <div class="filters" id="filters">
       <button data-f="all" class="active">Tất cả</button>
