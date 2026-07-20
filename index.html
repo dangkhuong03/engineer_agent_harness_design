@@ -17,8 +17,8 @@
     --muted:#526078;
     --accent:#2457d6;
     --accent-soft:#eaf0ff;
-    --json:#167447;      /* green - JSON confirmed */
-    --html-c:#9a6200;    /* amber - HTML inferred */
+    --json:#167447;      /* green - workflow artifact confirmed observation */
+    --html-c:#9a6200;    /* amber - runtime artifact observation/inference */
     --unk:#626c7e;        /* gray - unknown/inferred structure */
     --high:#167447;
     --medium:#946000;
@@ -264,7 +264,7 @@
   <div class="inner">
     <div class="kicker">Reverse Engineer Agent Harness Design</div>
     <h1>PAL — Harness Architecture &amp; Evidence Report</h1>
-    <p class="subtitle">Suy luận kiến trúc điều phối của PAL (orchestration loop, tool interface, context/memory, guardrails, human-in-the-loop) dựa trên đối chiếu workflow JSON export và HTML runtime của một lần chạy thực tế. Mỗi claim được gắn evidence cụ thể và mức độ tin cậy.</p>
+    <p class="subtitle">Suy luận kiến trúc điều phối của PAL (orchestration loop, tool interface, context/memory, guardrails, human-in-the-loop) bằng cách đối chiếu workflow configuration artifact với observed execution behavior được ghi nhận trong runtime artifact của một lần chạy thực tế. Mỗi claim được gắn evidence cụ thể và mức độ tin cậy.</p>
   </div>
 </header>
 
@@ -273,6 +273,7 @@
     <a href="#diagram" class="navlink">Architecture Diagram</a>
     <a href="#hypotheses" class="navlink">Hypothesis List</a>
     <a href="#findings" class="navlink">Findings chi tiết</a>
+    <a href="#conclusion" class="navlink">Conclusion</a>
   </div>
 </nav>
 
@@ -281,25 +282,25 @@
   <!-- ================= DIAGRAM ================= -->
   <section id="diagram">
     <h2>1. Harness Architecture Diagram</h2>
-    <p class="section-desc">Sơ đồ tách rõ 5 lớp: human interaction, control-flow graph (JSON <code>Edges</code>), data-flow / reference resolution, tool loop bên trong agent, và orchestrator-worker delegation. Node/edge không có bằng chứng trực tiếp được đánh dấu riêng.</p>
+    <p class="section-desc">Sơ đồ tách rõ các lớp human interaction, control-flow graph (JSON <code>Edges</code>), data-flow / reference resolution, tool loop, orchestrator-worker delegation, và guardrails/runtime configuration. Scheduler chỉ là thành phần điều phối suy luận, không phải workflow node và không nằm trên các JSON edges.</p>
 
     <div class="legend">
-      <span><span class="dot json"></span><b>🟢 JSON-confirmed</b> — xác nhận trực tiếp từ workflow JSON export</span>
-      <span><span class="dot htmlc"></span><b>🟡 HTML-inferred</b> — xác nhận/suy luận từ HTML runtime log</span>
+      <span><span class="dot json"></span><b>🟢 Confirmed observation</b> — quan sát trực tiếp từ workflow configuration artifact (JSON export)</span>
+      <span><span class="dot htmlc"></span><b>🟡 Runtime observation / inference</b> — observed execution behavior hoặc suy luận từ runtime execution artifact</span>
       <span><span class="dot unk"></span><b>⚪ Unknown</b> — cấu trúc suy đoán hợp lý, không có bằng chứng trực tiếp</span>
     </div>
 
     <div class="diagram-box">
       <div class="mermaid">
 flowchart TD
-    subgraph UI["🟢 Human interaction"]
-        U["🟢 User"]
-        H["🟢 Content Brief — HUMAN_INPUT node<br/>4 required + 1 optional field"]
-        POST["🟡 Post-run controls<br/>Share · Export PDF · New Run · Delete"]
-        U -->|"🟢 submits fields"| H
+    subgraph UI["🟢/🟡 Human interaction boundaries"]
+        U["🟡 User — runtime/UI actor"]
+        H["🟢 Content Brief — HUMAN_INPUT node<br/>Execution-entry HITL · 4 required + 1 optional field"]
+        POST["🟡 Post-run UI controls — not an execution gate<br/>Share · Export PDF · New Run · Delete"]
+        U -->|"🟡 submits via run UI"| H
     end
 
-    subgraph CONTROL["🟢 Control-flow graph "]
+    subgraph CONTROL["🟢 Workflow graph / ⚪ inferred dispatch"]
         S["⚪ Workflow scheduler/runtime<br/>(execution semantics inferred, not directly observed)"]
         M["🟢 Market & Competitor Research — AGENT"]
         C["🟢 Content Strategy & Outline — AGENT"]
@@ -307,13 +308,18 @@ flowchart TD
         Q["🟢 SEO & Quality Review — AGENT"]
         O["🟢 Distribution Pack — ORCHESTRATOR_WORKER"]
 
-        H -->|"🟢 graph entry edge"| S
-        S -->|"🟢 Edge / 🟡 sequential timestamps"| M
+        H -->|"🟢 Edge / 🟡 sequential timestamps"| M
         M -->|"🟢 Edge / 🟡 sequential timestamps"| C
         C -->|"🟢 Edge / 🟡 sequential timestamps"| A
         A -->|"🟢 Edge / 🟡 sequential timestamps"| Q
         Q -->|"🟢 Edge / 🟡 sequential timestamps"| O
-        S -->|"🟡 run status = COMPLETED"| POST
+
+        S -.->|"⚪ dispatches runnable nodes"| M
+        S -.-> C
+        S -.-> A
+        S -.-> Q
+        S -.-> O
+        O -.->|"🟡 completed run state displayed in UI"| POST
     end
 
     subgraph DATA["🟢 Data-flow / typed reference resolution"]
@@ -331,29 +337,23 @@ flowchart TD
         TP -->|"🟡 resolved runtime user message"| Q
         TP -->|"🟡 resolved runtime user message"| O
 
-        M -->|"🟡 persisted output"| NO
-        C -->|"🟡 persisted output"| NO
-        A -->|"🟡 persisted output"| NO
-        Q -->|"🟡 persisted output"| NO
+        M -->|"🟡 runtime output available for downstream references"| NO
+        C -->|"🟡 runtime output available for downstream references"| NO
+        A -->|"🟡 runtime output available for downstream references"| NO
+        Q -->|"🟡 runtime output available for downstream references"| NO
     end
 
     subgraph TOOLS["🟡 Inner agent-tool loop"]
         DISC["🟡 search_workspace_tools ×3 (tool discovery)"]
         CALL["🟡 use_workspace_tool → search_news ×2"]
-        ERR1["🟡 Validation error — bad params"]
-        ERR2["🟡 Rate-limit error — provider quota"]
         TEXT["🟡 Final research output (still generated)"]
 
         M -->|"🟡 tool-call trace"| DISC
         DISC -->|"🟡 exact tool_name/category instruction"| CALL
-        CALL -->|"🟡 structured error result"| ERR1
-        ERR1 -->|"🟡 corrected invocation observed"| CALL
-        CALL -->|"🟡 structured error result"| ERR2
-        ERR2 -->|"🟡 node still COMPLETED"| TEXT
     end
 
     subgraph DELEGATION["🟢/🟡 Orchestrator-worker execution"]
-        PLAN["🟡 Task decomposition<br/>maxTaskCount=10 (JSON config)"]
+        PLAN["🟡 Task decomposition<br/>maxTaskCount=10 — observed runtime configuration"]
         W1["🟡 Facebook task → Social Media Copywriter"]
         W2["🟡 LinkedIn task → Social Media Copywriter"]
         W3["🟡 Newsletter task → Email Marketing Specialist"]
@@ -362,6 +362,20 @@ flowchart TD
         PLAN -->|"🟡 worker record"| W1
         PLAN -->|"🟡 worker record"| W2
         PLAN -->|"🟡 worker record"| W3
+    end
+
+    subgraph GUARDRAILS["🟡 Guardrails / runtime configuration"]
+        VAL["🟡 Tool validation rejection<br/>missing query"]
+        RATE["🟡 Structured rate-limit response<br/>boundary owner not confirmed"]
+        FLAGS["🟡 Observed agent configuration<br/>memory=false · browser=false · computer=false"]
+        LIMIT["🟡 maxTaskCount=10 configured<br/>overflow enforcement not observed"]
+
+        CALL -->|"🟡 validation error result"| VAL
+        VAL -->|"🟡 corrected invocation observed"| CALL
+        CALL -->|"🟡 rate-limit result"| RATE
+        RATE -->|"🟡 node still COMPLETED"| TEXT
+        FLAGS -.->|"🟡 configuration state"| M
+        LIMIT -.->|"🟡 orchestrator configuration"| PLAN
     end
 
     subgraph ABSENT["🟢 Not configured in this workflow"]
@@ -377,7 +391,7 @@ flowchart TD
   <!-- ================= HYPOTHESES ================= -->
   <section id="hypotheses">
     <h2>2. Hypothesis List</h2>
-    <p class="section-desc">Mỗi hypothesis gắn evidence, nguồn (JSON/HTML), và mức độ tin cậy.</p>
+    <p class="section-desc">Mỗi hypothesis gắn evidence, nguồn quan sát (workflow artifact/runtime artifact), và mức độ tin cậy.</p>
 
     <!-- ADDED: định nghĩa các mức confidence để tránh hiểu badge như kết luận đúng/sai tuyệt đối. -->
     <aside class="confidence-guide" aria-labelledby="confidence-guide-title">
@@ -407,8 +421,8 @@ flowchart TD
       <button data-f="High">High</button>
       <button data-f="Medium">Medium</button>
       <button data-f="Low">Low / Unknown</button>
-      <button data-f="json">Nguồn: JSON</button>
-      <button data-f="html">Nguồn: HTML</button>
+      <button data-f="json">Nguồn: Workflow artifact</button>
+      <button data-f="html">Nguồn: Runtime artifact</button>
     </div>
 
     <div id="hyp-list"></div>
@@ -423,7 +437,7 @@ flowchart TD
       <div class="finding-head"><span class="finding-num">FINDING 1</span><span class="badge High">High</span></div>
       <h3>Control-flow graph được xác nhận trực tiếp</h3>
       <p><b>Finding:</b> Workflow là một graph tuyến tính gồm sáu node và năm cạnh, không có nhánh.</p>
-      <div class="label">Evidence — JSON Edges</div>
+      <div class="label">Evidence — workflow artifact: JSON Edges</div>
       <pre>"Edges": [
   { "sourceNodeId": "...ad5", "targetNodeId": "...ad6" },
   { "sourceNodeId": "...ad6", "targetNodeId": "...ad7" },
@@ -431,14 +445,14 @@ flowchart TD
   { "sourceNodeId": "...ad8", "targetNodeId": "...ad9" },
   { "sourceNodeId": "...ad9", "targetNodeId": "...ada" }
 ]</pre>
-      <div class="label">Evidence — HTML runtime timestamps (non-overlapping)</div>
+      <div class="label">Evidence — observed execution timestamps (non-overlapping)</div>
       <pre>ad5  10:18:58.574Z → 10:18:58.994Z
 ad6  10:19:10.149Z → 10:19:40.393Z
 ad7  10:19:43.870Z → 10:20:05.277Z
 ad8  10:20:08.666Z → 10:20:40.189Z
 ad9  10:20:43.414Z → 10:21:09.873Z
 ada  10:21:13.501Z → 10:23:33.828Z</pre>
-      <p><b>Impact:</b> JSON biến topology từ inference thành cấu hình trực tiếp; HTML xác nhận các node thực sự chạy không overlap, đúng thứ tự graph.</p>
+      <p><b>Impact:</b> Workflow artifact ghi nhận trực tiếp topology cấu hình; observed execution timestamps ghi nhận các node chạy không overlap, đúng thứ tự graph.</p>
     </div>
 
     <div class="finding">
@@ -453,25 +467,25 @@ Data reference:
 
 Human-input reference (namespace khác):
 @[Primary Topic/Keyword](type=WORKFLOW_HUMAN_INPUT_FIELD&workflowHumanInputFieldId=6a58ac5c185298d443590ae3)</pre>
-      <p><b>Impact:</b> Kiến trúc gồm hai lớp — (1) scheduler đọc Edges để quyết định thứ tự node, (2) reference resolver đọc typed ID để materialize dữ liệu vào prompt. 18/18 references trong JSON đều trỏ đến ID tồn tại, không có dangling reference.</p>
+      <p><b>Impact:</b> Evidence hỗ trợ việc tách hai chức năng — (1) một execution component suy luận phải tuân theo <code>Edges</code>, và (2) một reference-resolution function suy luận phải xử lý typed ID để materialize dữ liệu vào prompt. Không quan sát trực tiếp implementation của scheduler hoặc resolver. Workflow artifact ghi nhận 18/18 references đều trỏ đến ID tồn tại, không có dangling reference.</p>
     </div>
 
     <div class="finding">
       <div class="finding-head"><span class="finding-num">FINDING 3</span><span class="badges"><span class="badge High">High</span><span class="badge Low">Unknown (payload)</span></span></div>
-      <h3>Context propagation có tính chọn lọc, không phải shared transcript</h3>
-      <p><b>Finding:</b> Mỗi node khai báo cụ thể input nào nó cần thông qua typed reference, không nhận toàn bộ transcript.</p>
+      <h3>Explicit context propagation có tính chọn lọc; hidden/shared context vẫn unknown</h3>
+      <p><b>Finding:</b> Mỗi node khai báo cụ thể input nào nó cần thông qua typed reference. Evidence xác nhận explicit/selective dataflow, nhưng không đủ để loại trừ một hidden/shared context channel.</p>
       <div class="label">Evidence — resolved runtime prompt</div>
       <pre>"role":"user","parts":[{"type":"text","text":"Conduct a deep research report on
 AI Workflow Automation for Small Businesses for the target audience: Small
 business owners... Analyze these competitors: HubSpot AI, Jasper AI, Copy.ai,
 Writesonic, Anyword. Write in \"English\"."}]</pre>
-      <p><b>Impact:</b> Bằng chứng phù hợp với explicit/selective context assembly (template + selected predecessor output + selected input fields → execution prompt). Không chứng minh được payload cuối/truncation.</p>
+      <p><b>Impact:</b> Bằng chứng phù hợp với explicit/selective context assembly (template + selected predecessor output + selected input fields → execution prompt). Không chứng minh được payload cuối, truncation, hoặc sự vắng mặt tuyệt đối của shared transcript.</p>
     </div>
 
     <div class="finding">
       <div class="finding-head"><span class="finding-num">FINDING 4</span><span class="badge High">High — corrected</span></div>
       <h3>Content Brief có 4 required + 1 optional field, không phải 5 required</h3>
-      <div class="label">Evidence — HTML runtime screenshot</div>
+      <div class="label">Evidence — runtime execution artifact screenshot</div>
       <figure class="evidence-shot">
         <img src="evidence_screenshots/content_brief_fields.png" alt="Content Brief hiển thị 4 trường có dấu sao bắt buộc và Specific Competitors không có dấu sao">
         <figcaption>Content Brief: 4 required fields + 1 optional field.</figcaption>
@@ -482,10 +496,10 @@ Writesonic, Anyword. Write in \"English\"."}]</pre>
     <div class="finding">
       <div class="finding-head"><span class="finding-num">FINDING 5</span><span class="badge High">High</span></div>
       <h3>Human input là một node chính thức trong control graph</h3>
-      <div class="label">Evidence — JSON node definition</div>
+      <div class="label">Evidence — workflow artifact: JSON node definition</div>
       <pre>{ "label": "Content Brief", "type": "HUMAN_INPUT",
   "HumanInputNode": { "id": "6a58ac5c185298d443590ae2", "Fields": [...] } }</pre>
-      <div class="label">Evidence — manual trigger và completed status (HTML runtime screenshot)</div>
+      <div class="label">Evidence — observed manual trigger và completed status (runtime artifact screenshot)</div>
       <figure class="evidence-shot">
         <img src="evidence_screenshots/run_header_manual_completed.png" alt="Workflow header hiển thị MANUAL, 36 AI credits và Completed">
         <figcaption>Workflow run header: MANUAL trigger, 36 AI credits, Completed.</figcaption>
@@ -493,7 +507,7 @@ Writesonic, Anyword. Write in \"English\"."}]</pre>
       <div class="label">Evidence — serialized wait/resume state</div>
       <pre>"waitState":null,"waiterObservedAt":null,
 "waitResumeRequestedAt":null,"waitResumeAckedAt":null</pre>
-      <p><b>Impact:</b> HITL ban đầu là một phần orchestration graph, không chỉ UI affordance. Không có intermediate wait/approval event trong run được ghi lại.</p>
+      <p><b>Impact:</b> HITL tại đầu execution là một phần orchestration graph, không chỉ UI affordance. Không có intermediate wait/approval event trong run được ghi lại. Các nút Share, Export PDF, New Run và Delete xuất hiện sau khi run hoàn tất nên chỉ là post-run UI controls, không phải execution gate.</p>
     </div>
 
     <div class="finding">
@@ -509,12 +523,12 @@ Writesonic, Anyword. Write in \"English\"."}]</pre>
     <div class="finding">
       <div class="finding-head"><span class="finding-num">FINDING 7</span><span class="badge High">High</span></div>
       <h3>Orchestrator là cấu hình có chủ đích, không phải nhãn UI</h3>
-      <div class="label">Evidence — orchestratorPrompt (JSON)</div>
+      <div class="label">Evidence — orchestratorPrompt recorded in workflow artifact (JSON)</div>
       <pre>"type": "ORCHESTRATOR_WORKER",
 "orchestratorPrompt": "Analyze the final article from @[SEO & Quality Review]
 ... and delegate the creation of distribution materials (Facebook post,
 LinkedIn post, and Newsletter) to the specialists."</pre>
-      <div class="label">Evidence — 3 worker task panels (HTML runtime screenshots)</div>
+      <div class="label">Evidence — 3 observed worker task panels (runtime artifact screenshots)</div>
       <figure class="evidence-shot">
         <img src="evidence_screenshots/orchestrator_task_1_facebook.png" alt="Task 1 Facebook được giao cho Social Media Copywriter">
         <figcaption>Task 1: Facebook — Social Media Copywriter.</figcaption>
@@ -527,26 +541,26 @@ LinkedIn post, and Newsletter) to the specialists."</pre>
         <img src="evidence_screenshots/orchestrator_task_3_newsletter.png" alt="Task 3 Newsletter được giao cho Email Marketing Specialist">
         <figcaption>Task 3: Newsletter — Email Marketing Specialist.</figcaption>
       </figure>
-      <p><b>Impact:</b> JSON xác nhận intent cấu hình; HTML xác nhận runtime tương ứng. Lưu ý: agentId cho task index 1 (Facebook) không xuất hiện trực tiếp trong đoạn worker-record trích ở Finding này — gán "Social Media Copywriter" cho Facebook suy ra từ WorkerAgents list (agentId ...ae0 = Social Media Copywriter), không phải từ chính bản ghi task 1.</p>
+      <p><b>Impact:</b> Workflow artifact ghi nhận intent cấu hình; runtime execution artifact ghi nhận hành vi delegation tương ứng. Lưu ý: agentId cho task index 1 (Facebook) không xuất hiện trực tiếp trong đoạn worker-record trích ở Finding này — gán "Social Media Copywriter" cho Facebook suy ra từ WorkerAgents list (agentId ...ae0 = Social Media Copywriter), không phải từ chính bản ghi task 1.</p>
     </div>
 
     <div class="finding">
       <div class="finding-head"><span class="finding-num">FINDING 8</span><span class="badge High">High</span></div>
-      <h3>JSON là structural export, không phải full execution manifest</h3>
-      <p><b>Finding:</b> Agent node trong JSON chỉ chứa <code>id</code> + <code>prompt</code>. Không có: agentId, system prompt, tools, knowledge sources, memory settings, model ID, temperature, permissions, maxTaskCount, retry/timeout/concurrency, execution timestamps, outputs.</p>
-      <div class="label">Evidence — các field này chỉ xuất hiện trong HTML runtime</div>
+      <h3>Workflow configuration artifact là structural export, không phải full execution manifest</h3>
+      <p><b>Finding:</b> Agent node trong workflow artifact (JSON) chỉ chứa <code>id</code> + <code>prompt</code>. Không có: agentId, system prompt, tools, knowledge sources, memory settings, model ID, temperature, permissions, maxTaskCount, retry/timeout/concurrency, execution timestamps, outputs.</p>
+      <div class="label">Evidence — các field này được runtime execution artifact ghi nhận</div>
       <pre>"synthesizerPrompt":null,"maxTaskCount":10,"OrchestratorAgent":{"id":"...adf"}
 "isMemoryEnabled":false,"languageModelId":null,"maxTokens":null,
 "temperature":null,"isBrowserUseEnabled":false,"isComputerUseEnabled":false</pre>
-      <p><b>Impact:</b> Sự vắng mặt trong JSON không được dùng để kết luận capability không tồn tại — JSON và HTML bổ sung cho nhau, không mâu thuẫn.</p>
+      <p><b>Impact:</b> Sự vắng mặt trong workflow configuration artifact không được dùng để kết luận capability không tồn tại — workflow artifact và runtime execution artifact cung cấp hai lớp evidence bổ sung, không mâu thuẫn.</p>
     </div>
 
     <div class="finding">
       <div class="finding-head"><span class="finding-num">FINDING 9</span><span class="badge High">High</span></div>
       <h3>SELECT field không export options hoặc default</h3>
-      <div class="label">Evidence — JSON configuration</div>
+      <div class="label">Evidence — workflow artifact: JSON configuration</div>
       <pre>{ "label": "Output Language", "type": "SELECT", "required": true, "config": null }</pre>
-      <div class="label">Evidence — HTML runtime screenshot</div>
+      <div class="label">Evidence — runtime execution artifact screenshot</div>
       <figure class="evidence-shot">
         <img src="evidence_screenshots/content_brief_fields.png" alt="Output Language được resolve thành English trong Content Brief">
         <figcaption>Runtime value displayed by the SELECT field: English.</figcaption>
@@ -577,7 +591,7 @@ Output: {"status":"error","code":"rateLimited","message":"You have made too
 
 Node status ngay sau đó: "status":"COMPLETED"
 Output cuối vẫn có: "Market Research Report: AI Workflow Automation..."</pre>
-      <div class="label">Evidence — tool sequence và final report marker (HTML runtime screenshot)</div>
+      <div class="label">Evidence — observed tool sequence và final report marker (runtime artifact screenshot)</div>
       <figure class="evidence-shot">
         <img src="evidence_screenshots/market_tool_sequence.png" alt="Ba lần search_workspace_tools, hai lần Search News and Blog Articles, sau đó là Market Research Report">
         <figcaption>Tool-call sequence followed by the final Market Research Report.</figcaption>
@@ -586,7 +600,7 @@ Output cuối vẫn có: "Market Research Report: AI Workflow Automation..."</pr
         <img src="evidence_screenshots/market_report_after_tool_errors.png" alt="Tiêu đề Market Research Report xuất hiện sau chuỗi tool calls">
         <figcaption>Final output marker after the failed external search attempts.</figcaption>
       </figure>
-      <p><b>Impact:</b> Rate limit là guardrail thực tế ở external tool/provider boundary. PAL giữ lỗi ở dạng structured result và không tự động fail toàn node — agent vẫn tạo output cuối cùng. Không rõ đây là workflow-level retry hay agent tự quyết định tiếp tục.</p>
+      <p><b>Impact:</b> Trong run này, rate-limit response xuất hiện ở tool-call boundary dưới dạng structured result và node vẫn tạo output cuối cùng. Nội dung message gợi ý external provider quota, nhưng owner của guardrail chưa được xác nhận. Không rõ đây là workflow-level retry hay agent tự quyết định tiếp tục.</p>
     </div>
 
     <div class="finding guardrail">
@@ -597,7 +611,7 @@ Output cuối vẫn có: "Market Research Report: AI Workflow Automation..."</pr
 tool_name, category, and required parameters. For composio tools, also
 include the app_name. Only use a tool if its description clearly matches
 what you need."</pre>
-      <p><b>Impact:</b> Instruction-level guardrail tại tool interface. HTML xác nhận instruction được cung cấp, nhưng không chứng minh hard enforcement với mọi phần của instruction.</p>
+      <p><b>Impact:</b> Instruction-level guardrail tại tool interface. Runtime execution artifact ghi nhận instruction được cung cấp, nhưng observed behavior không chứng minh hard enforcement với mọi phần của instruction.</p>
     </div>
 
     <div class="finding guardrail">
@@ -611,12 +625,24 @@ what you need."</pre>
     </div>
 
     <div class="finding guardrail">
-      <div class="finding-head"><span class="finding-num">FINDING 14 — GUARDRAIL</span><span class="badges"><span class="badge High">High (limit)</span><span class="badge Low">Unknown (overflow)</span></span></div>
+      <div class="finding-head"><span class="finding-num">FINDING 14 — GUARDRAIL</span><span class="badges"><span class="badge High">High (config)</span><span class="badge Low">Unknown (enforcement)</span></span></div>
       <h3>Orchestrator có explicit task-count limit</h3>
       <div class="label">Evidence</div>
       <pre>"orchestratorAgentId":"6a58ac5b185298d443590adf","synthesizerPrompt":null,
 "maxTaskCount":10,"OrchestratorAgent":{"id":"6a58ac5b185298d443590adf"}</pre>
-      <p><b>Impact:</b> <code>maxTaskCount</code> là bounded-delegation guardrail giới hạn fan-out của orchestrator. Run chỉ tạo 3/10 task — không quan sát được hành vi khi vượt ngưỡng.</p>
+      <p><b>Impact:</b> <code>maxTaskCount:10</code> xác nhận một bounded-delegation configuration cho orchestrator. Run chỉ tạo 3 task; chưa quan sát được việc runtime enforce giới hạn hoặc hành vi khi vượt ngưỡng.</p>
+    </div>
+  </section>
+
+  <!-- ================= CONCLUSION ================= -->
+  <section id="conclusion">
+    <h2>4. Updated Conclusion</h2>
+    <p class="section-desc">Phạm vi kết luận được giới hạn vào workflow configuration artifact và observed execution behavior của run đã ghi nhận.</p>
+    <div class="finding">
+      <h3>Run-scoped inferred Agent Harness Design</h3>
+      <p>Workflow configuration artifact và observed execution behavior cung cấp đủ evidence để suy luận một harness architecture cho workflow/run này: workflow graph tuyến tính, explicit typed-reference dataflow, runtime agent execution, inner tool-call loop, orchestrator-worker delegation, human input tại graph entry, và các guardrail/runtime configuration đã quan sát.</p>
+      <p>Workflow artifact ghi nhận các JSON edges như dependency trực tiếp giữa workflow nodes. Scheduler/runtime và reference resolver là functional components được suy luận từ observed behavior, không phải node hoặc implementation được quan sát trực tiếp. Post-run UI controls không phải human approval gate trong execution.</p>
+      <p>Kiến trúc này không chứng minh kiến trúc chung của toàn bộ PAL. Scheduler semantics, hidden/shared context, durable persistence, retry policy, worker concurrency, capability enforcement và hành vi khi vượt <code>maxTaskCount</code> vẫn unknown.</p>
     </div>
   </section>
 
@@ -891,72 +917,72 @@ mermaid.run({querySelector:'.mermaid'}).then(()=>{
 // ---- Hypothesis data ----
 const hypotheses = [
   {t:"Workflow chính là pipeline tuyến tính", conf:"High", src:["json","html"],
-   ev:"Confirmed bằng 5 explicit Edges (Finding 1); HTML timestamps xác nhận execution theo đúng thứ tự, không overlap.",
+   ev:"Workflow artifact ghi nhận 5 explicit Edges (Finding 1); observed execution timestamps ghi nhận execution theo đúng thứ tự, không overlap.",
    note:"Graph tuyến tính 6 node, không branching."},
   {t:"Scheduler chỉ dispatch node sau khi predecessor hoàn tất", conf:"Medium", src:["html"],
-   ev:"HTML timestamps (Finding 1) hỗ trợ nhưng chỉ chứng minh 'không overlap', không chứng minh cơ chế dispatch chờ-hoàn-tất-mới-bắt-đầu.",
-   note:"JSON chỉ định dependency, không chỉ định completion semantics."},
-  {t:"PAL có reference resolver (2 namespace)", conf:"High", src:["json"],
-   ev:"18/18 typed references trong JSON đều trỏ đến ID tồn tại (Finding 2); 2 namespace: WORKFLOW_NODE và WORKFLOW_HUMAN_INPUT_FIELD.",
-   note:"Không có dangling reference nào được quan sát."},
-  {t:"Context được truyền bằng explicit dataflow (không phải shared transcript)", conf:"High", src:["json","html"],
+   ev:"Observed execution timestamps (Finding 1) hỗ trợ nhưng chỉ chứng minh 'không overlap', không chứng minh cơ chế dispatch chờ-hoàn-tất-mới-bắt-đầu.",
+   note:"Workflow artifact chỉ định dependency, không chỉ định completion semantics."},
+  {t:"PAL có functional reference-resolution step (2 namespace)", conf:"High", src:["json","html"],
+   ev:"Workflow artifact ghi nhận 18/18 typed references đều trỏ đến ID tồn tại; runtime execution artifact ghi nhận resolved prompt phù hợp với việc reference đã được materialize (Findings 2–3).",
+   note:"Functional step được hỗ trợ mạnh; implementation nội bộ của resolver không được quan sát."},
+  {t:"Context được truyền bằng explicit/selective dataflow", conf:"High", src:["json","html"],
    ev:"Finding 3: mỗi node khai báo cụ thể input cần; resolved runtime prompt cho thấy nội dung khớp với template + reference.",
-   note:"Unknown: payload cuối cùng / có truncation hay không."},
+   note:"Unknown: payload cuối cùng, truncation, hoặc hidden/shared context channel."},
   {t:"Toàn bộ output predecessor được inject nguyên vẹn vào node sau", conf:"Low", src:[],
    ev:"Không có evidence trực tiếp cho việc output được truyền full/summary/truncated.",
    note:"Chưa xác định được."},
-  {t:"Mỗi node có transcript độc lập (không chia sẻ 1 conversation dài)", conf:"High", src:["html"],
-   ev:"Finding 8: cấu trúc message role:user / role:assistant / step-start lặp lại riêng cho từng node execution.",
-   note:"Evidence trực tiếp trong Findings 1, 8."},
+  {t:"Mỗi node có transcript độc lập (không chia sẻ 1 conversation dài)", conf:"Medium", src:["html"],
+   ev:"Runtime execution artifact ghi nhận message structure theo từng node, nhưng Findings hiện tại không chứa một transcript excerpt đủ để loại trừ hidden/shared context.",
+   note:"Explicit context là selective; transcript isolation vẫn là inference."},
   {t:"Market Research agent có inner tool loop", conf:"High", src:["html"],
    ev:"Findings 8, 10, 11: search_workspace_tools ×3 → use_workspace_tool ×2 (1 validation error, 1 rate-limit error) → final output.",
-   note:"Toàn bộ trace nằm trong HTML runtime, đã trích lại."},
+   note:"Toàn bộ trace được runtime execution artifact ghi nhận và đã trích lại."},
   {t:"Tool interface là discovery-then-invoke", conf:"High", src:["html"],
    ev:"Finding 12: instruction rõ ràng 'call use_workspace_tool with the exact tool_name, category...' sau khi search_workspace_tools trả kết quả.",
    note:"Evidence trực tiếp, đã trích lại."},
-  {t:"Tool error là non-fatal (node vẫn hoàn tất)", conf:"High", src:["html"],
+  {t:"Các tool error quan sát được không làm fail node", conf:"High", src:["html"],
    ev:"Findings 10, 11: 2 lỗi tool (validation + rate-limit) nhưng node vẫn 'COMPLETED' và tạo final report.",
-   note:"Evidence trực tiếp, đã trích lại."},
-  {t:"Orchestrator phân rã task động", conf:"High", src:["json","html"],
-   ev:"Finding 7: orchestratorPrompt yêu cầu delegate; HTML xác nhận 3 worker task thực tế được tạo và hoàn tất.",
-   note:"JSON xác nhận intent, HTML xác nhận runtime."},
+   note:"Chỉ kết luận cho error sequence trong run được quan sát; không suy rộng thành global retry/error policy."},
+  {t:"Orchestrator đã delegate 3 worker task trong run được quan sát", conf:"High", src:["json","html"],
+   ev:"Finding 7: workflow artifact ghi nhận orchestratorPrompt yêu cầu delegate; runtime execution artifact ghi nhận 3 worker task thực tế được tạo và hoàn tất.",
+   note:"Configuration intent và observed runtime behavior tương ứng; concurrency vẫn unknown."},
   {t:"3 worker task chạy song song", conf:"Low", src:[],
    ev:"Không có timestamp hay concurrency flag cho worker task trong bằng chứng hiện có.",
    note:"Chưa xác định được song song hay tuần tự."},
-  {t:"maxTaskCount=10 giới hạn fan-out của orchestrator", conf:"High", src:["html"],
-   ev:"Finding 14: trường maxTaskCount:10 xuất hiện trực tiếp trong HTML runtime config.",
-   note:"Áp dụng cho cấu hình của run này."},
+  {t:"Orchestrator được cấu hình maxTaskCount=10", conf:"High", src:["html"],
+   ev:"Finding 14: runtime execution artifact ghi nhận trực tiếp trường maxTaskCount:10 trong runtime configuration.",
+   note:"High cho configuration state; runtime enforcement khi vượt ngưỡng vẫn unknown."},
   {t:"Không có synthesizer riêng cho orchestrator-worker", conf:"High", src:["html"],
-   ev:"Findings 8, 14: synthesizerPrompt:null xuất hiện trực tiếp.",
+   ev:"Findings 8, 14: runtime execution artifact ghi nhận trực tiếp synthesizerPrompt:null.",
    note:"Áp dụng cho run này."},
-  {t:"Memory dài hạn không được dùng trong run này", conf:"High", src:["html"],
-   ev:"Finding 13: isMemoryEnabled:false xuất hiện trực tiếp trong agent config.",
-   note:"Chỉ áp dụng cho agent config của run được quan sát."},
+  {t:"Memory được cấu hình disabled trong agent/run được quan sát", conf:"High", src:["html"],
+   ev:"Finding 13: runtime execution artifact ghi nhận trực tiếp isMemoryEnabled:false trong agent config.",
+   note:"High cho configuration state; không suy rộng thành kiến trúc memory chung của PAL."},
   {t:"Browser use / computer use bị tắt", conf:"High", src:["html"],
-   ev:"Finding 13: isBrowserUseEnabled:false, isComputerUseEnabled:false xuất hiện trực tiếp.",
+   ev:"Finding 13: runtime execution artifact ghi nhận trực tiếp isBrowserUseEnabled:false và isComputerUseEnabled:false.",
    note:"Configuration state, không chứng minh enforcement."},
-  {t:"HITL chỉ diễn ra ở đầu và sau run, không có gate giữa các agent", conf:"High", src:["json","html"],
-   ev:"Finding 5: 1 HUMAN_INPUT node ở đầu graph; không có GateNode; HTML cho thấy waitState:null suốt run.",
-   note:"Đúng cho workflow/run này, không phải toàn nền tảng."},
-  {t:"Content Brief có 5 field bắt buộc", conf:"High", src:["json"],
-   ev:"Finding 4: JSON cho thấy chỉ 4 required + 1 optional — hypothesis ban đầu SAI, đã sửa.",
-   note:"Contradicted — corrected."},
+  {t:"HITL nằm ở graph entry; không có intermediate execution gate được quan sát", conf:"High", src:["json","html"],
+   ev:"Finding 5: workflow artifact ghi nhận 1 HUMAN_INPUT node ở đầu graph và không có GateNode; runtime execution artifact ghi nhận waitState:null suốt run.",
+   note:"Post-run Share/Export/New Run/Delete là UI controls, không phải execution gate. Claim chỉ áp dụng cho workflow/run này."},
+  {t:"Content Brief có 4 required + 1 optional field", conf:"High", src:["json","html"],
+   ev:"Finding 4: workflow artifact và observed runtime UI ghi nhận 4 field required; Specific Competitors là optional.",
+   note:"Kết luận sai trước đây về 5 required fields đã được sửa."},
   {t:"Workflow này không dùng Loop/Router/Gate/Evaluator", conf:"High", src:["json"],
    ev:"Finding 6: toàn bộ subtype slot tương ứng đều null trong mọi node.",
    note:"Newly confirmed."},
   {t:"PAL schema phân biệt nhiều specialized node type (Loop, Router, Gate, Evaluator, Chat, Artifact...)", conf:"Medium", src:["json"],
    ev:"Finding 6: các field tồn tại trong schema dù = null, chứng tỏ data model nhận diện các type này.",
    note:"Runtime semantics trên toàn nền tảng chưa biết — chỉ biết schema tồn tại."},
-  {t:"Tool schema validation là hard guardrail tại boundary", conf:"High", src:["html"],
+  {t:"Tool validation được thực thi tại tool-call boundary", conf:"High", src:["html"],
    ev:"Finding 10: request thiếu query bị từ chối với message cụ thể thay vì gửi tiếp.",
-   note:"Không rõ PAL hay tool provider thực thi."},
-  {t:"Rate limit thuộc external provider, không phải PAL tự áp", conf:"Medium", src:["html"],
+   note:"Behavior được quan sát trực tiếp; PAL hay tool provider thực thi vẫn unknown."},
+  {t:"Rate-limit response có khả năng đến từ external provider", conf:"Medium", src:["html"],
    ev:"Finding 11: message rate-limit có định dạng đặc trưng của news API bên thứ ba ('Developer accounts are limited to 100 requests...').",
-   note:"Suy luận hợp lý từ nội dung message, chưa xác nhận 100%."},
+   note:"Suy luận từ nội dung message; owner của rate-limit boundary chưa được xác nhận."},
 ];
 
 function badgeSrc(src){
-  return src.map(s=>`<span class="badge src">${s==='json'?'🟢 JSON':'🟡 HTML'}</span>`).join('');
+  return src.map(s=>`<span class="badge src">${s==='json'?'🟢 Workflow artifact':'🟡 Runtime artifact'}</span>`).join('');
 }
 function confClass(c){
   if(c==="High") return "High";
@@ -1003,7 +1029,7 @@ document.querySelectorAll('#filters button').forEach(btn=>{
 });
 
 // Scroll-spy for subnav
-const sections = ['diagram','hypotheses','findings','unknowns'].map(id=>document.getElementById(id)).filter(Boolean);
+const sections = ['diagram','hypotheses','findings','conclusion'].map(id=>document.getElementById(id)).filter(Boolean);
 const links = document.querySelectorAll('.navlink');
 window.addEventListener('scroll',()=>{
   let idx = 0;
